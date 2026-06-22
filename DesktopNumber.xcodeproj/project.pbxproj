@@ -1,0 +1,206 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* DesktopNumberApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000001 /* DesktopNumberApp.swift */; };
+		A10000010000000000000002 /* SpaceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000002 /* SpaceObserver.swift */; };
+		A10000010000000000000003 /* CGSPrivate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000003 /* CGSPrivate.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000020000000000000001 /* DesktopNumberApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopNumberApp.swift; sourceTree = "<group>"; };
+		A10000020000000000000002 /* SpaceObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceObserver.swift; sourceTree = "<group>"; };
+		A10000020000000000000003 /* CGSPrivate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGSPrivate.swift; sourceTree = "<group>"; };
+		A10000020000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000030000000000000001 /* DesktopNumber.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DesktopNumber.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000040000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000050000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10000050000000000000002 /* DesktopNumber */,
+				A10000050000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000050000000000000002 /* DesktopNumber */ = {
+			isa = PBXGroup;
+			children = (
+				A10000020000000000000001 /* DesktopNumberApp.swift */,
+				A10000020000000000000002 /* SpaceObserver.swift */,
+				A10000020000000000000003 /* CGSPrivate.swift */,
+				A10000020000000000000004 /* Info.plist */,
+			);
+			path = DesktopNumber;
+			sourceTree = "<group>";
+		};
+		A10000050000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000030000000000000001 /* DesktopNumber.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000060000000000000001 /* DesktopNumber */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000090000000000000001 /* Build configuration list for PBXNativeTarget "DesktopNumber" */;
+			buildPhases = (
+				A10000070000000000000001 /* Sources */,
+				A10000040000000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DesktopNumber;
+			productName = DesktopNumber;
+			productReference = A10000030000000000000001 /* DesktopNumber.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000080000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = A10000090000000000000002 /* Build configuration list for PBXProject "DesktopNumber" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000050000000000000001;
+			productRefGroup = A10000050000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000060000000000000001 /* DesktopNumber */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000070000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* DesktopNumberApp.swift in Sources */,
+				A10000010000000000000002 /* SpaceObserver.swift in Sources */,
+				A10000010000000000000003 /* CGSPrivate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A100000A0000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A100000A0000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A100000A0000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DesktopNumber/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.desktopnumber.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A100000A0000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DesktopNumber/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.desktopnumber.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000090000000000000001 /* Build configuration list for PBXNativeTarget "DesktopNumber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000A0000000000000003 /* Debug */,
+				A100000A0000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000090000000000000002 /* Build configuration list for PBXProject "DesktopNumber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000A0000000000000001 /* Debug */,
+				A100000A0000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000080000000000000001 /* Project object */;
+}
