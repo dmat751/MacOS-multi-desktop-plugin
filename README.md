@@ -76,6 +76,46 @@ The installer writes `/etc/sudoers.d/desktopnumber-commute` allowing only:
 
 Commute mode does **not** use `caffeinate`. That tool does not prevent sleep when the lid is closed.
 
+## Cursor agent notifications (optional)
+
+Send a push notification via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes (`completed`, `aborted`, or `error`). This uses Cursor **user hooks** installed into `~/.cursor/`.
+
+Install once from the DesktopNumber menu (**Install Push Hooks** under **Cursor Agent Push**), or from the terminal:
+
+```bash
+./scripts/install-cursor-notify-hooks.sh
+```
+
+Uninstall:
+
+```bash
+./scripts/uninstall-cursor-notify-hooks.sh
+```
+
+The installer:
+
+- copies hook scripts to `~/.cursor/hooks/`
+- merges a `stop` hook into `~/.cursor/hooks.json` (backs up any existing file first)
+- creates `~/.cursor/hooks/notify.env` from `notify.env.example` (set your ntfy topic there)
+- sends a test push when `NTFY_TOPIC` is configured
+
+Edit `~/.cursor/hooks/notify.env` and set your topic:
+
+```bash
+NTFY_TOPIC=your-topic-name
+```
+
+Enable or disable push notifications from the DesktopNumber menu bar:
+
+- open the menu bar icon
+- use **Push when agent finishes** under **Cursor Agent Push**
+
+The toggle writes `NTFY_ENABLED=1` or `NTFY_ENABLED=0` to `~/.cursor/hooks/notify.env`. No Cursor restart is required.
+
+After install, restart Cursor once and verify the hook in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
+
+**Note:** This covers agent completion only. Built-in Cursor approval prompts (Auto-review / Allowlist) do not have a hook and are not notified yet.
+
 ## Commute mode safety
 
 When commute mode is enabled, the app and an embedded `CommuteFailsafe` helper monitor:
