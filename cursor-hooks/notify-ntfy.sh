@@ -11,11 +11,6 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
 fi
 
-NTFY_ENABLED="${NTFY_ENABLED:-1}"
-case "$NTFY_ENABLED" in
-  0|false|no|off|FALSE|NO|OFF) exit 0 ;;
-esac
-
 if [[ -z "${NTFY_TOPIC:-}" || "$NTFY_TOPIC" == "your-topic-name" ]]; then
   echo "notify-ntfy.sh: set NTFY_TOPIC in notify.env (see notify.env.example)" >&2
   exit 1

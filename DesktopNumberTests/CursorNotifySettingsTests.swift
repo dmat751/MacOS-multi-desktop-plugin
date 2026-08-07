@@ -5,7 +5,25 @@ final class CursorNotifyEnvFileTests: XCTestCase {
     func testMissingEnabledKeyDefaultsToEnabled() {
         let env = CursorNotifyEnvFile(contents: "NTFY_TOPIC=Cursor-test\n")
         XCTAssertTrue(env.isEnabled)
+        XCTAssertTrue(env.isApproveEnabled)
         XCTAssertEqual(env.topic, "Cursor-test")
+    }
+
+    func testParsesApproveEnabledValues() {
+        XCTAssertTrue(CursorNotifyEnvFile(contents: "NTFY_APPROVE_ENABLED=1\n").isApproveEnabled)
+        XCTAssertFalse(CursorNotifyEnvFile(contents: "NTFY_APPROVE_ENABLED=0\n").isApproveEnabled)
+        XCTAssertFalse(CursorNotifyEnvFile(contents: "NTFY_APPROVE_ENABLED=false\n").isApproveEnabled)
+    }
+
+    func testSetApproveEnabledUpdatesExistingLine() {
+        let original = """
+        NTFY_TOPIC=Cursor-test
+        NTFY_APPROVE_ENABLED=1
+
+        """
+        let updated = CursorNotifyEnvFile(contents: original).settingApproveEnabled(false)
+        XCTAssertTrue(updated.contains("NTFY_APPROVE_ENABLED=0"))
+        XCTAssertFalse(updated.contains("NTFY_APPROVE_ENABLED=1"))
     }
 
     func testParsesEnabledValues() {
@@ -73,6 +91,7 @@ final class CursorNotifySettingsTests: XCTestCase {
         try """
         NTFY_TOPIC=Cursor-test
         NTFY_ENABLED=0
+        NTFY_APPROVE_ENABLED=0
 
         """.write(to: envURL, atomically: true, encoding: .utf8)
 
@@ -84,7 +103,31 @@ final class CursorNotifySettingsTests: XCTestCase {
 
         XCTAssertTrue(settings.isInstalled)
         XCTAssertFalse(settings.isEnabled)
+        XCTAssertFalse(settings.isApproveEnabled)
         XCTAssertEqual(settings.topic, "Cursor-test")
+    }
+
+    func testSetApproveEnabledWritesToEnvFile() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DesktopNumberNotifyTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let hookURL = directory.appendingPathComponent("on-stop.sh")
+        let envURL = directory.appendingPathComponent("notify.env")
+        try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
+        try "NTFY_TOPIC=Cursor-test\nNTFY_APPROVE_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
+
+        let settings = CursorNotifySettings(
+            fileManager: .default,
+            hookScriptURL: hookURL,
+            envFileURL: envURL
+        )
+
+        settings.setApproveEnabled(false)
+
+        let env = CursorNotifyEnvFile(contents: try String(contentsOf: envURL, encoding: .utf8))
+        XCTAssertFalse(env.isApproveEnabled)
+        XCTAssertFalse(settings.isApproveEnabled)
     }
 
     func testSetEnabledWritesToEnvFile() throws {

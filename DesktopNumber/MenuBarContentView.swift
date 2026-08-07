@@ -59,6 +59,14 @@ struct MenuBarContentView: View {
                     )
                 )
 
+                Toggle(
+                    "Push when approve needed",
+                    isOn: Binding(
+                        get: { notifySettings.isApproveEnabled },
+                        set: { notifySettings.setApproveEnabled($0) }
+                    )
+                )
+
                 Text("ntfy topic")
                     .font(.caption2)
                     .foregroundStyle(.secondary)

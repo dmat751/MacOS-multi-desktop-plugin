@@ -2,6 +2,7 @@ import Foundation
 
 struct CursorNotifyEnvFile {
     static let enabledKey = "NTFY_ENABLED"
+    static let approveEnabledKey = "NTFY_APPROVE_ENABLED"
     static let topicKey = "NTFY_TOPIC"
 
     let lines: [String]
@@ -21,7 +22,19 @@ struct CursorNotifyEnvFile {
     }
 
     var isEnabled: Bool {
-        guard let raw = value(for: Self.enabledKey) else { return true }
+        Self.isTruthy(value(for: Self.enabledKey), defaultValue: true)
+    }
+
+    var isApproveEnabled: Bool {
+        Self.isTruthy(value(for: Self.approveEnabledKey), defaultValue: true)
+    }
+
+    var topic: String? {
+        value(for: Self.topicKey)
+    }
+
+    private static func isTruthy(_ raw: String?, defaultValue: Bool) -> Bool {
+        guard let raw else { return defaultValue }
         switch raw.lowercased() {
         case "0", "false", "no", "off":
             return false
@@ -30,18 +43,22 @@ struct CursorNotifyEnvFile {
         }
     }
 
-    var topic: String? {
-        value(for: Self.topicKey)
+    func settingEnabled(_ enabled: Bool) -> String {
+        settingKey(Self.enabledKey, enabled: enabled)
     }
 
-    func settingEnabled(_ enabled: Bool) -> String {
+    func settingApproveEnabled(_ enabled: Bool) -> String {
+        settingKey(Self.approveEnabledKey, enabled: enabled)
+    }
+
+    private func settingKey(_ key: String, enabled: Bool) -> String {
         let newValue = enabled ? "1" : "0"
         var updated = false
         var output: [String] = []
 
         for line in lines {
-            if !line.hasPrefix("#"), line.hasPrefix("\(Self.enabledKey)=") {
-                output.append("\(Self.enabledKey)=\(newValue)")
+            if !line.hasPrefix("#"), line.hasPrefix("\(key)=") {
+                output.append("\(key)=\(newValue)")
                 updated = true
             } else {
                 output.append(line)
@@ -52,7 +69,7 @@ struct CursorNotifyEnvFile {
             if !output.isEmpty, output.last?.isEmpty == false {
                 output.append("")
             }
-            output.append("\(Self.enabledKey)=\(newValue)")
+            output.append("\(key)=\(newValue)")
         }
 
         while output.last == "" {
@@ -94,6 +111,7 @@ struct CursorNotifyEnvFile {
 final class CursorNotifySettings: ObservableObject {
     @Published private(set) var isInstalled = false
     @Published private(set) var isEnabled = true
+    @Published private(set) var isApproveEnabled = true
     @Published private(set) var topic: String?
     @Published private(set) var isInstalling = false
     @Published private(set) var installError: String?
@@ -127,12 +145,14 @@ final class CursorNotifySettings: ObservableObject {
 
         guard let contents = try? String(contentsOf: envFileURL, encoding: .utf8) else {
             isEnabled = true
+            isApproveEnabled = true
             topic = nil
             return
         }
 
         let env = CursorNotifyEnvFile(contents: contents)
         isEnabled = env.isEnabled
+        isApproveEnabled = env.isApproveEnabled
         topic = env.topic
     }
 
@@ -164,6 +184,7 @@ final class CursorNotifySettings: ObservableObject {
             contents = """
             NTFY_TOPIC=your-topic-name
             NTFY_ENABLED=\(enabled ? "1" : "0")
+            NTFY_APPROVE_ENABLED=\(isApproveEnabled ? "1" : "0")
 
             """
         }
@@ -171,6 +192,30 @@ final class CursorNotifySettings: ObservableObject {
         do {
             try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
             isEnabled = enabled
+            refresh()
+        } catch {
+            refresh()
+        }
+    }
+
+    func setApproveEnabled(_ enabled: Bool) {
+        guard isInstalled else { return }
+
+        let contents: String
+        if let existing = try? String(contentsOf: envFileURL, encoding: .utf8) {
+            contents = CursorNotifyEnvFile(contents: existing).settingApproveEnabled(enabled)
+        } else {
+            contents = """
+            NTFY_TOPIC=your-topic-name
+            NTFY_ENABLED=\(isEnabled ? "1" : "0")
+            NTFY_APPROVE_ENABLED=\(enabled ? "1" : "0")
+
+            """
+        }
+
+        do {
+            try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
+            isApproveEnabled = enabled
             refresh()
         } catch {
             refresh()
@@ -187,6 +232,7 @@ final class CursorNotifySettings: ObservableObject {
             contents = """
             NTFY_TOPIC=\(topic)
             NTFY_ENABLED=\(isEnabled ? "1" : "0")
+            NTFY_APPROVE_ENABLED=\(isApproveEnabled ? "1" : "0")
 
             """
         }

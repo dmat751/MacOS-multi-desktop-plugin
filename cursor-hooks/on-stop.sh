@@ -43,6 +43,18 @@ case "$status" in
     ;;
 esac
 
-"${SCRIPT_DIR}/notify-ntfy.sh" "$title" "$body" "$tags" "$priority" || true
+ENV_FILE="${SCRIPT_DIR}/notify.env"
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
+NTFY_ENABLED="${NTFY_ENABLED:-1}"
+case "$NTFY_ENABLED" in
+  0|false|no|off|FALSE|NO|OFF) ;;
+  *)
+    "${SCRIPT_DIR}/notify-ntfy.sh" "$title" "$body" "$tags" "$priority" || true
+    ;;
+esac
 
 echo '{}'

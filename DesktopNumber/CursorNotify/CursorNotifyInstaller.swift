@@ -16,6 +16,8 @@ enum CursorNotifyInstallError: LocalizedError {
 
 struct CursorNotifyInstaller {
     static let stopHookCommand = "./hooks/on-stop.sh"
+    static let shellHookCommand = "./hooks/on-before-shell.sh"
+    static let mcpHookCommand = "./hooks/on-before-mcp.sh"
     static let bundledResourceDirectory = "CursorHooks"
 
     private let fileManager: FileManager
@@ -47,7 +49,10 @@ struct CursorNotifyInstaller {
         try fileManager.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
 
         try installBundledScript(named: "notify-ntfy", destinationName: "notify-ntfy.sh")
+        try installBundledScript(named: "approval-notify", destinationName: "approval-notify.sh")
         try installBundledScript(named: "on-stop", destinationName: "on-stop.sh")
+        try installBundledScript(named: "on-before-shell", destinationName: "on-before-shell.sh")
+        try installBundledScript(named: "on-before-mcp", destinationName: "on-before-mcp.sh")
 
         if !fileManager.fileExists(atPath: envFileURL.path) {
             let exampleURL = try bundledResourceURL(name: "notify.env.example")
@@ -55,7 +60,7 @@ struct CursorNotifyInstaller {
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: envFileURL.path)
         }
 
-        try mergeStopHookIntoHooksJSON()
+        try mergeHooksIntoHooksJSON()
         if sendTestNotification {
             try sendTestNotificationIfPossible()
         }
@@ -103,7 +108,7 @@ struct CursorNotifyInstaller {
         try fileManager.copyItem(at: sourceURL, to: destinationURL)
     }
 
-    func mergeStopHookIntoHooksJSON() throws {
+    func mergeHooksIntoHooksJSON() throws {
         if fileManager.fileExists(atPath: hooksJSONURL.path) {
             let backupURL = hooksJSONURL.deletingPathExtension()
                 .appendingPathExtension("bak.\(Self.timestampBackupSuffix())")
@@ -112,12 +117,19 @@ struct CursorNotifyInstaller {
 
         let merged = try Self.mergedHooksJSON(
             existingData: try? Data(contentsOf: hooksJSONURL),
-            stopHookCommand: Self.stopHookCommand
+            stopHookCommand: Self.stopHookCommand,
+            shellHookCommand: Self.shellHookCommand,
+            mcpHookCommand: Self.mcpHookCommand
         )
         try merged.write(to: hooksJSONURL, options: .atomic)
     }
 
-    static func mergedHooksJSON(existingData: Data?, stopHookCommand: String) throws -> Data {
+    static func mergedHooksJSON(
+        existingData: Data?,
+        stopHookCommand: String,
+        shellHookCommand: String,
+        mcpHookCommand: String
+    ) throws -> Data {
         var root: [String: Any]
         if let existingData,
            let parsed = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] {
@@ -131,19 +143,21 @@ struct CursorNotifyInstaller {
         }
 
         var hooks = root["hooks"] as? [String: Any] ?? [:]
-        var stopHooks = hooks["stop"] as? [[String: Any]] ?? []
-        let alreadyInstalled = stopHooks.contains { hook in
-            hook["command"] as? String == stopHookCommand
-        }
 
-        if !alreadyInstalled {
-            stopHooks.append([
-                "command": stopHookCommand,
-                "matcher": "Stop",
-            ])
-        }
+        hooks["stop"] = Self.mergedHookEntries(
+            existing: hooks["stop"] as? [[String: Any]] ?? [],
+            command: stopHookCommand,
+            matcher: "Stop"
+        )
+        hooks["beforeShellExecution"] = Self.mergedHookEntries(
+            existing: hooks["beforeShellExecution"] as? [[String: Any]] ?? [],
+            command: shellHookCommand
+        )
+        hooks["beforeMCPExecution"] = Self.mergedHookEntries(
+            existing: hooks["beforeMCPExecution"] as? [[String: Any]] ?? [],
+            command: mcpHookCommand
+        )
 
-        hooks["stop"] = stopHooks
         root["hooks"] = hooks
 
         guard JSONSerialization.isValidJSONObject(root) else {
@@ -155,6 +169,26 @@ struct CursorNotifyInstaller {
             return (string + "\n").data(using: .utf8) ?? data
         }
         return data
+    }
+
+    private static func mergedHookEntries(
+        existing: [[String: Any]],
+        command: String,
+        matcher: String? = nil
+    ) -> [[String: Any]] {
+        var entries = existing
+        let alreadyInstalled = entries.contains { hook in
+            hook["command"] as? String == command
+        }
+
+        guard !alreadyInstalled else { return entries }
+
+        var entry: [String: Any] = ["command": command]
+        if let matcher {
+            entry["matcher"] = matcher
+        }
+        entries.append(entry)
+        return entries
     }
 
     private func sendTestNotificationIfPossible() throws {

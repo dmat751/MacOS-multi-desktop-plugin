@@ -1,6 +1,16 @@
 {
   "version": 1,
   "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "./hooks/on-before-shell.sh"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "./hooks/on-before-mcp.sh"
+      }
+    ],
     "stop": [
       {
         "command": "./hooks/on-stop.sh",

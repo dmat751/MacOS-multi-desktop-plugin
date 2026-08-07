@@ -78,7 +78,7 @@ Commute mode does **not** use `caffeinate`. That tool does not prevent sleep whe
 
 ## Cursor agent notifications (optional)
 
-Send a push notification via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes (`completed`, `aborted`, or `error`). This uses Cursor **user hooks** installed into `~/.cursor/`.
+Send push notifications via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes or needs your approval. This uses Cursor **user hooks** installed into `~/.cursor/`.
 
 Install once from the DesktopNumber menu (**Install Push Hooks** under **Cursor Agent Push**), or from the terminal:
 
@@ -95,26 +95,28 @@ Uninstall:
 The installer:
 
 - copies hook scripts to `~/.cursor/hooks/`
-- merges a `stop` hook into `~/.cursor/hooks.json` (backs up any existing file first)
+- merges `stop`, `beforeShellExecution`, and `beforeMCPExecution` hooks into `~/.cursor/hooks.json` (backs up any existing file first)
 - creates `~/.cursor/hooks/notify.env` from `notify.env.example` (set your ntfy topic there)
 - sends a test push when `NTFY_TOPIC` is configured
 
-Edit `~/.cursor/hooks/notify.env` and set your topic:
+Edit `~/.cursor/hooks/notify.env`:
 
 ```bash
 NTFY_TOPIC=your-topic-name
+NTFY_ENABLED=1
+NTFY_APPROVE_ENABLED=1
 ```
 
 Enable or disable push notifications from the DesktopNumber menu bar:
 
-- open the menu bar icon
-- use **Push when agent finishes** under **Cursor Agent Push**
+- **Push when agent finishes** — writes `NTFY_ENABLED=1` or `0`
+- **Push when approve needed** — writes `NTFY_APPROVE_ENABLED=1` or `0`
 
-The toggle writes `NTFY_ENABLED=1` or `NTFY_ENABLED=0` to `~/.cursor/hooks/notify.env`. No Cursor restart is required.
+No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
 
-After install, restart Cursor once and verify the hook in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
+**Approve coverage:** hooks send a push when they return `permission: ask` for risky shell commands (network, git write, `sudo`, destructive `rm`, package installs, `docker`/`kubectl`) and for all MCP tool calls. Built-in Cursor approval prompts (Auto-review / Allowlist) do not have a hook — those cases may not send a push unless they match the hook rules above.
 
-**Note:** This covers agent completion only. Built-in Cursor approval prompts (Auto-review / Allowlist) do not have a hook and are not notified yet.
+After updating DesktopNumber, run **Install Push Hooks** again to refresh scripts in `~/.cursor/hooks/`.
 
 ## Commute mode safety
 

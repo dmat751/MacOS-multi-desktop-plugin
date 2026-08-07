@@ -7,7 +7,6 @@ TARGET_DIR="${HOME}/.cursor"
 HOOKS_DIR="${TARGET_DIR}/hooks"
 HOOKS_JSON="${TARGET_DIR}/hooks.json"
 NOTIFY_ENV="${HOOKS_DIR}/notify.env"
-STOP_HOOK_ENTRY='{"command": "./hooks/on-stop.sh", "matcher": "Stop"}'
 
 if [[ ! -d "$SOURCE_DIR" ]]; then
   echo "Missing source directory: ${SOURCE_DIR}"
@@ -16,8 +15,9 @@ fi
 
 mkdir -p "$HOOKS_DIR"
 
-install -m 755 "${SOURCE_DIR}/notify-ntfy.sh" "${HOOKS_DIR}/notify-ntfy.sh"
-install -m 755 "${SOURCE_DIR}/on-stop.sh" "${HOOKS_DIR}/on-stop.sh"
+for script in notify-ntfy.sh approval-notify.sh on-stop.sh on-before-shell.sh on-before-mcp.sh; do
+  install -m 755 "${SOURCE_DIR}/${script}" "${HOOKS_DIR}/${script}"
+done
 
 if [[ ! -f "$NOTIFY_ENV" ]]; then
   install -m 600 "${SOURCE_DIR}/notify.env.example" "$NOTIFY_ENV"
@@ -32,13 +32,12 @@ if [[ -f "$HOOKS_JSON" ]]; then
   echo "Backed up existing hooks.json to ${backup}"
 fi
 
-python3 - "$HOOKS_JSON" "$STOP_HOOK_ENTRY" <<'PY'
+python3 - "$HOOKS_JSON" <<'PY'
 import json
 import pathlib
 import sys
 
 hooks_json = pathlib.Path(sys.argv[1])
-stop_entry = json.loads(sys.argv[2])
 
 if hooks_json.exists():
     data = json.loads(hooks_json.read_text())
@@ -47,16 +46,24 @@ else:
 
 data.setdefault("version", 1)
 data.setdefault("hooks", {})
-stop_hooks = data["hooks"].setdefault("stop", [])
 
-already_installed = any(
-    hook.get("command") == stop_entry["command"]
-    for hook in stop_hooks
-    if isinstance(hook, dict)
-)
+def merge_hook(hook_name, command, matcher=None):
+    hooks = data["hooks"].setdefault(hook_name, [])
+    already_installed = any(
+        hook.get("command") == command
+        for hook in hooks
+        if isinstance(hook, dict)
+    )
+    if already_installed:
+        return
+    entry = {"command": command}
+    if matcher:
+        entry["matcher"] = matcher
+    hooks.append(entry)
 
-if not already_installed:
-    stop_hooks.append(stop_entry)
+merge_hook("stop", "./hooks/on-stop.sh", "Stop")
+merge_hook("beforeShellExecution", "./hooks/on-before-shell.sh")
+merge_hook("beforeMCPExecution", "./hooks/on-before-mcp.sh")
 
 hooks_json.write_text(json.dumps(data, indent=2) + "\n")
 PY
