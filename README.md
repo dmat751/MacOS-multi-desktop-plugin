@@ -2,6 +2,11 @@
 
 A macOS menu bar app that shows the active desktop number (e.g. `3` or `3/5`) and today's Cursor usage cost (e.g. `3/5 · $0.42`), so you don't have to press Ctrl+↑ to check which desktop you're on or open the Cursor dashboard to see today's spend.
 
+It also includes:
+
+- **Office / Power status** — read-only check that your Mac is configured for lock-screen safety on AC power (`Prevent automatic sleeping on power adapter when the display is off`).
+- **Commute mode** — keeps the Mac awake with the lid closed for local Cursor agents during a commute, with automatic safety cutoffs.
+
 ## Requirements
 
 - macOS 13 (Ventura) or later
@@ -11,7 +16,7 @@ A macOS menu bar app that shows the active desktop number (e.g. `3` or `3/5`) an
 
 ```bash
 cd mac-desktop-number-plugin
-xcodebuild -scheme DesktopNumber -configuration Release build
+xcodebuild -scheme DesktopNumber -configuration Release -derivedDataPath build build
 ```
 
 The built app is located at:
@@ -28,15 +33,60 @@ When building from Xcode (without `-derivedDataPath build`), check the path in t
 open build/Build/Products/Release/DesktopNumber.app
 ```
 
-After launch, the current desktop number appears in the menu bar. When Cursor usage data is available, the label also shows today's cost, for example `3/5 · $0.42`.
+After launch, the current desktop number appears in the menu bar. When Cursor usage data is available, the label also shows today's cost, for example `3/5 · $0.42`. When commute mode is active, the label also shows a coffee indicator.
 
 Clicking the icon opens a menu with:
+
 - the current desktop number
 - today's Cursor cost and token usage
-- the time of the last refresh
+- office / power status (AC, prevent-sleep setting, lock-screen safety)
+- commute mode controls and safety status
 - a manual refresh action
 
 The app runs as an agent (`LSUIElement`) — it has no Dock icon.
+
+## Commute mode setup
+
+Commute mode uses `pmset -a disablesleep` so a MacBook can stay awake with the lid closed. This requires narrowly scoped, passwordless `sudo` access for exactly two commands.
+
+Install once:
+
+```bash
+sudo scripts/install-commute-permission.sh
+```
+
+Uninstall:
+
+```bash
+sudo scripts/uninstall-commute-permission.sh
+```
+
+The installer writes `/etc/sudoers.d/desktopnumber-commute` allowing only:
+
+- `/usr/bin/pmset -a disablesleep 1`
+- `/usr/bin/pmset -a disablesleep 0`
+
+## Office vs commute
+
+| Scenario | What to use |
+| --- | --- |
+| Office, plugged in, Ctrl+Cmd+Q lock screen | macOS Battery setting **Prevent automatic sleeping on power adapter when the display is off** — check status in the menu |
+| Commute, lid closed, local Cursor agent | **Commute mode** in the menu (90-minute limit) |
+| Safest closed-lid workflow | Cursor **Cloud Agent** — laptop can sleep |
+
+Commute mode does **not** use `caffeinate`. That tool does not prevent sleep when the lid is closed.
+
+## Commute mode safety
+
+When commute mode is enabled, the app and an embedded `CommuteFailsafe` helper monitor:
+
+- **90-minute timer** — auto-disable after 90 minutes
+- **Battery ≤ 20% on battery power** — auto-disable so the Mac can sleep
+- **Thermal pressure (`serious` / `critical`)** — auto-disable so the Mac can sleep and cool down; finish the task at home
+- **App quit** — disables commute mode on normal quit
+- **Fail-safe helper** — if the menu app crashes, the helper still disables sleep when limits are hit
+
+**Risks:** heat buildup in a bag, faster battery drain, and interrupted agent tasks after automatic shutdown. Do not leave commute mode running indefinitely.
 
 ## Launch at login (optional)
 
@@ -50,6 +100,8 @@ Alternatively, you can copy the app to `/Applications` and add it from there.
 ```bash
 xcodebuild -scheme DesktopNumber -configuration Debug -derivedDataPath build test
 ```
+
+Unit tests use mocks and do not change system power settings.
 
 ## Notes
 

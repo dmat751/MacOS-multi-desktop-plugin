@@ -5,6 +5,7 @@ import SwiftUI
 struct DesktopNumberApp: App {
     @StateObject private var spaceObserver = SpaceObserver()
     @StateObject private var usageObserver = CursorUsageObserver()
+    @StateObject private var commuteController = CommuteModeController()
 
     var body: some Scene {
         MenuBarExtra {
@@ -45,7 +46,76 @@ struct DesktopNumberApp: App {
 
             Divider()
 
+            Text("Office / Power")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let officeStatus = commuteController.officeStatus {
+                Text("On AC power: \(officeStatus.isOnACPower ? "Yes" : "No")")
+                Text(
+                    "Prevent sleep when display off: \(officeStatus.preventSleepWhenDisplayOff ? "ON" : "OFF")"
+                )
+                Text("Office lock-screen safe: \(officeStatus.isOfficeReady ? "Yes" : "No")")
+            } else {
+                Text("Office status: unavailable")
+            }
+
+            Button("Refresh Power Status") {
+                commuteController.refreshOfficeStatus()
+            }
+
+            Divider()
+
+            Text("Commute Mode (closed lid)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text("Keeps the Mac awake with lid closed. Risk: heat and battery drain.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            if commuteController.isActive {
+                Button("Stop Commute Mode") {
+                    commuteController.stop(reason: .user)
+                }
+                if let remaining = commuteController.remainingSeconds {
+                    Text("Time left: \(UsageFormatting.formatDuration(seconds: remaining))")
+                }
+            } else {
+                Button("Start Commute Mode (90 min)") {
+                    commuteController.enable()
+                }
+                .disabled(!commuteController.hasPasswordlessAccess || commuteController.phase == .enabling)
+            }
+
+            if let batteryPercent = commuteController.batteryPercent {
+                Text("Battery: \(batteryPercent)%")
+            }
+
+            Text("Thermal: \(UsageFormatting.formatThermalState(commuteController.thermalState))")
+
+            if !commuteController.hasPasswordlessAccess {
+                Text("Setup required: run scripts/install-commute-permission.sh")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let lastStopReason = commuteController.lastStopReason {
+                Text(UsageFormatting.formatCommuteStopReason(lastStopReason))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let errorMessage = commuteController.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
             Button("Quit") {
+                commuteController.stop(reason: .userQuit)
                 NSApplication.shared.terminate(nil)
             }
         } label: {
@@ -63,10 +133,16 @@ struct DesktopNumberApp: App {
             desktopLabel = "\(spaceObserver.currentSpaceIndex)"
         }
 
+        var label = desktopLabel
+
         if let costCents = usageObserver.todayCostCents {
-            return "\(desktopLabel) · \(UsageFormatting.formatDollars(cents: costCents))"
+            label += " · \(UsageFormatting.formatDollars(cents: costCents))"
         }
 
-        return desktopLabel
+        if commuteController.isActive {
+            label += " ☕"
+        }
+
+        return label
     }
 }
