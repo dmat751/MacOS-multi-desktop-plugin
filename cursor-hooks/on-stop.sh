@@ -18,26 +18,26 @@ else:
 
 case "$status" in
   completed)
-    title="Cursor: gotowe"
-    body="Agent zakończył w ${workspace}"
+    title="Cursor: done"
+    body="Agent finished in ${workspace}"
     tags="cursor,done"
     priority="default"
     ;;
   aborted)
-    title="Cursor: przerwane"
-    body="Agent przerwany w ${workspace}"
+    title="Cursor: aborted"
+    body="Agent aborted in ${workspace}"
     tags="cursor,aborted"
     priority="high"
     ;;
   error)
-    title="Cursor: błąd"
-    body="Agent zakończył z błędem w ${workspace}"
+    title="Cursor: error"
+    body="Agent finished with an error in ${workspace}"
     tags="cursor,error"
     priority="high"
     ;;
   *)
     title="Cursor: ${status}"
-    body="Agent zakończył (${status}) w ${workspace}"
+    body="Agent finished (${status}) in ${workspace}"
     tags="cursor,unknown"
     priority="default"
     ;;

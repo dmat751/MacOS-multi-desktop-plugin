@@ -35,7 +35,7 @@ target="$(echo "$parsed" | python3 -c "import json,sys; print(json.load(sys.stdi
 
 "${SCRIPT_DIR}/approval-notify.sh" \
   "Cursor: approve" \
-  "MCP w ${workspace}: ${tool_name} (${target})" \
+  "MCP in ${workspace}: ${tool_name} (${target})" \
   "cursor,approval,mcp" \
   "high" || true
 

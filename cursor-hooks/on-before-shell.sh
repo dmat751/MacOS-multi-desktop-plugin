@@ -42,7 +42,7 @@ if [[ "$needs_approval" == "True" ]]; then
 
   "${SCRIPT_DIR}/approval-notify.sh" \
     "Cursor: approve" \
-    "Shell w ${workspace}: ${short_cmd}" \
+    "Shell in ${workspace}: ${short_cmd}" \
     "cursor,approval,shell" \
     "high" || true
 
