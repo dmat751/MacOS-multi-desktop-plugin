@@ -49,7 +49,7 @@ The app runs as an agent (`LSUIElement`) — it has no Dock icon.
 
 Commute mode uses `pmset -a disablesleep` so a MacBook can stay awake with the lid closed. This requires narrowly scoped, passwordless `sudo` access for exactly two commands.
 
-Install once:
+Install once from the menu (**Grant Access** next to Start Commute Mode) or manually:
 
 ```bash
 sudo scripts/install-commute-permission.sh
@@ -114,7 +114,7 @@ Enable or disable push notifications from the DesktopNumber menu bar:
 
 No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
 
-**Approve coverage:** hooks send a push when they return `permission: ask` for risky shell commands (network, git write, `sudo`, destructive `rm`, package installs, `docker`/`kubectl`) and for all MCP tool calls. Built-in Cursor approval prompts (Auto-review / Allowlist) do not have a hook — those cases may not send a push unless they match the hook rules above.
+**Approve coverage:** DesktopNumber watches Cursor logs for native approval prompts (shell allowlist, MCP allowlist, Auto-review) and sends a push immediately. Hooks still provide a fallback for risky shell/MCP commands via `beforeShellExecution` / `beforeMCPExecution`.
 
 After updating DesktopNumber, run **Install Push Hooks** again to refresh scripts in `~/.cursor/hooks/`.
 

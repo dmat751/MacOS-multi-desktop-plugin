@@ -6,7 +6,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-USERNAME="${SUDO_USER:-$(logname 2>/dev/null || echo "$USER")}"
+USERNAME="${SUDO_USER:-$(logname 2>/dev/null || stat -f%Su /dev/console 2>/dev/null || echo "$USER")}"
 if [[ -z "$USERNAME" || "$USERNAME" == "root" ]]; then
   echo "Could not determine the installing user."
   exit 1

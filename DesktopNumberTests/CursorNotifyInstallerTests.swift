@@ -27,32 +27,6 @@ final class CursorNotifyInstallerTests: XCTestCase {
         XCTAssertEqual(mcpHooks?.first?["command"] as? String, "./hooks/on-before-mcp.sh")
     }
 
-    func testMergeDoesNotDuplicateHooks() throws {
-        let existing = """
-        {
-          "version": 1,
-          "hooks": {
-            "stop": [
-              { "command": "./hooks/on-stop.sh", "matcher": "Stop" }
-            ],
-            "beforeShellExecution": [
-              { "command": "./hooks/on-before-shell.sh" }
-            ],
-            "beforeMCPExecution": [
-              { "command": "./hooks/on-before-mcp.sh" }
-            ]
-          }
-        }
-        """.data(using: .utf8)
-
-        let json = try mergeHooks(existingData: existing)
-        let hooks = json["hooks"] as? [String: Any]
-
-        XCTAssertEqual((hooks?["stop"] as? [[String: Any]])?.count, 1)
-        XCTAssertEqual((hooks?["beforeShellExecution"] as? [[String: Any]])?.count, 1)
-        XCTAssertEqual((hooks?["beforeMCPExecution"] as? [[String: Any]])?.count, 1)
-    }
-
     func testInstallCopiesHookScripts() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("DesktopNumberInstallerTests-\(UUID().uuidString)", isDirectory: true)
@@ -117,5 +91,125 @@ final class CursorNotifyInstallerTests: XCTestCase {
             (hooks?["beforeMCPExecution"] as? [[String: Any]])?.first?["command"] as? String,
             "./hooks/on-before-mcp.sh"
         )
+    }
+
+    func testMergeDoesNotDuplicateHooks() throws {
+        let existing = """
+        {
+          "version": 1,
+          "hooks": {
+            "stop": [
+              { "command": "./hooks/on-stop.sh", "matcher": "Stop" }
+            ],
+            "beforeShellExecution": [
+              { "command": "./hooks/on-before-shell.sh" }
+            ],
+            "beforeMCPExecution": [
+              { "command": "./hooks/on-before-mcp.sh" }
+            ]
+          }
+        }
+        """.data(using: .utf8)
+
+        let json = try mergeHooks(existingData: existing)
+        let hooks = json["hooks"] as? [String: Any]
+
+        XCTAssertEqual((hooks?["stop"] as? [[String: Any]])?.count, 1)
+        XCTAssertEqual((hooks?["beforeShellExecution"] as? [[String: Any]])?.count, 1)
+        XCTAssertEqual((hooks?["beforeMCPExecution"] as? [[String: Any]])?.count, 1)
+    }
+
+    func testHooksJSONStatusDetectsStopOnlyInstall() throws {
+        let stopOnly = """
+        {
+          "version": 1,
+          "hooks": {
+            "stop": [
+              { "command": "./hooks/on-stop.sh", "matcher": "Stop" }
+            ]
+          }
+        }
+        """.data(using: .utf8)
+
+        let status = CursorNotifyInstaller.hooksJSONStatus(data: stopOnly)
+
+        XCTAssertEqual(status, ["beforeShellExecution", "beforeMCPExecution"])
+    }
+
+    func testMigrateIfNeededAddsMissingApprovalHooks() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DesktopNumberInstallerTests-\(UUID().uuidString)", isDirectory: true)
+        let hooksRoot = root.appendingPathComponent("CursorHooks", isDirectory: true)
+        let cursorRoot = root.appendingPathComponent(".cursor", isDirectory: true)
+        try FileManager.default.createDirectory(at: hooksRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cursorRoot.appendingPathComponent("hooks"), withIntermediateDirectories: true)
+
+        let repoHooks = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("cursor-hooks", isDirectory: true)
+
+        for script in [
+            "notify-ntfy.sh",
+            "approval-notify.sh",
+            "on-stop.sh",
+            "on-before-shell.sh",
+            "on-before-mcp.sh",
+            "notify.env.example",
+        ] {
+            try FileManager.default.copyItem(
+                at: repoHooks.appendingPathComponent(script),
+                to: hooksRoot.appendingPathComponent(script)
+            )
+        }
+
+        let hooksJSON = """
+        {
+          "version": 1,
+          "hooks": {
+            "stop": [
+              { "command": "./hooks/on-stop.sh", "matcher": "Stop" }
+            ]
+          }
+        }
+        """
+        try hooksJSON.write(
+            to: cursorRoot.appendingPathComponent("hooks.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=1\n".write(
+            to: cursorRoot.appendingPathComponent("hooks/notify.env"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "#!/bin/bash\n".write(
+            to: cursorRoot.appendingPathComponent("hooks/on-stop.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let installer = CursorNotifyInstaller(
+            fileManager: .default,
+            resourceDirectory: hooksRoot,
+            cursorDirectory: cursorRoot
+        )
+
+        let before = installer.installationStatus()
+        XCTAssertTrue(before.needsMigration)
+
+        try installer.migrateIfNeeded()
+
+        let after = installer.installationStatus()
+        XCTAssertFalse(after.needsMigration)
+
+        let env = CursorNotifyEnvFile(
+            contents: try String(
+                contentsOf: cursorRoot.appendingPathComponent("hooks/notify.env"),
+                encoding: .utf8
+            )
+        )
+        XCTAssertEqual(env.topic, "Cursor-test")
+        XCTAssertTrue(env.isApproveEnabled)
     }
 }

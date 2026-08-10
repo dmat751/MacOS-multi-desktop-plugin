@@ -7,7 +7,16 @@ struct PmsetProfileSettings {
 
 enum PmsetParser {
     static func parseSleepDisabled(from pmsetGOutput: String) -> Bool {
-        pmsetGOutput.contains("SleepDisabled\t1")
+        for line in pmsetGOutput.split(separator: "\n") {
+            let parts = line
+                .trimmingCharacters(in: .whitespaces)
+                .split(whereSeparator: \.isWhitespace)
+            guard parts.count >= 2 else { continue }
+            if parts[0] == "SleepDisabled", parts[1] == "1" {
+                return true
+            }
+        }
+        return false
     }
 
     static func parseCustomProfiles(from output: String) -> (ac: PmsetProfileSettings, battery: PmsetProfileSettings) {

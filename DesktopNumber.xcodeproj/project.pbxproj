@@ -25,6 +25,7 @@
 		C10000010000000000000007 /* CommuteFailsafeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000007 /* CommuteFailsafeRunner.swift */; };
 		C10000010000000000000008 /* CommuteModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000008 /* CommuteModeController.swift */; };
 		C10000010000000000000009 /* CommuteFailsafePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000009 /* CommuteFailsafePolicy.swift */; };
+		C10000010000000000000010 /* CommutePermissionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000010 /* CommutePermissionInstaller.swift */; };
 		D10000010000000000000001 /* CommuteFailsafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000020000000000000001 /* CommuteFailsafe.swift */; };
 		D10000010000000000000002 /* CommandExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000001 /* CommandExecutor.swift */; };
 		D10000010000000000000003 /* PmsetParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000020000000000000002 /* PmsetParser.swift */; };
@@ -40,10 +41,16 @@
 		B10000010000000000000004 /* PmsetParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000004 /* PmsetParsingTests.swift */; };
 		B10000010000000000000005 /* CommuteFailsafePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000005 /* CommuteFailsafePolicyTests.swift */; };
 		B10000010000000000000006 /* CommuteModeControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000006 /* CommuteModeControllerTests.swift */; };
+		B10000010000000000000007 /* CommutePermissionInstallerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000007 /* CommutePermissionInstallerTests.swift */; };
 		E10000010000000000000001 /* CursorNotifySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000001 /* CursorNotifySettings.swift */; };
 		E10000010000000000000002 /* CursorNotifySettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000002 /* CursorNotifySettingsTests.swift */; };
 		E10000010000000000000003 /* CursorNotifyInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000003 /* CursorNotifyInstaller.swift */; };
 		E10000010000000000000004 /* CursorNotifyInstallerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000004 /* CursorNotifyInstallerTests.swift */; };
+		E10000010000000000000005 /* CursorApprovalLogParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000005 /* CursorApprovalLogParser.swift */; };
+		E10000010000000000000006 /* CursorNtfyClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000006 /* CursorNtfyClient.swift */; };
+		E10000010000000000000007 /* CursorApprovalMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000007 /* CursorApprovalMonitor.swift */; };
+		E10000010000000000000008 /* CursorApprovalLogParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000008 /* CursorApprovalLogParserTests.swift */; };
+		E10000010000000000000009 /* CursorApprovalMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000020000000000000009 /* CursorApprovalMonitorTests.swift */; };
 		H10000010000000000000001 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H10000020000000000000001 /* MenuBarContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -104,6 +111,22 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CursorHooks\"\nmkdir -p \"$DST\"\ncp \"${SRCROOT}/cursor-hooks/notify-ntfy.sh\" \\\n   \"${SRCROOT}/cursor-hooks/approval-notify.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-stop.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-before-shell.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-before-mcp.sh\" \\\n   \"${SRCROOT}/cursor-hooks/notify.env.example\" \\\n   \"$DST/\"\n";
 		};
+		F10000090000000000000002 /* Copy Commute Scripts */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/install-commute-permission.sh",
+			);
+			name = "Copy Commute Scripts";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CommuteScripts/install-commute-permission.sh",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CommuteScripts\"\nmkdir -p \"$DST\"\ncp \"${SRCROOT}/scripts/install-commute-permission.sh\" \"$DST/\"\nchmod 755 \"$DST/install-commute-permission.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -128,6 +151,7 @@
 		C10000020000000000000007 /* CommuteFailsafeRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteFailsafeRunner.swift; sourceTree = "<group>"; };
 		C10000020000000000000008 /* CommuteModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteModeController.swift; sourceTree = "<group>"; };
 		C10000020000000000000009 /* CommuteFailsafePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteFailsafePolicy.swift; sourceTree = "<group>"; };
+		C10000020000000000000010 /* CommutePermissionInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommutePermissionInstaller.swift; sourceTree = "<group>"; };
 		D10000020000000000000001 /* CommuteFailsafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteFailsafe.swift; sourceTree = "<group>"; };
 		D10000030000000000000001 /* CommuteFailsafe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CommuteFailsafe; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000020000000000000001 /* UsageFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageFormattingTests.swift; sourceTree = "<group>"; };
@@ -136,10 +160,16 @@
 		B10000020000000000000004 /* PmsetParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PmsetParsingTests.swift; sourceTree = "<group>"; };
 		B10000020000000000000005 /* CommuteFailsafePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteFailsafePolicyTests.swift; sourceTree = "<group>"; };
 		B10000020000000000000006 /* CommuteModeControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommuteModeControllerTests.swift; sourceTree = "<group>"; };
+		B10000020000000000000007 /* CommutePermissionInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommutePermissionInstallerTests.swift; sourceTree = "<group>"; };
 		E10000020000000000000001 /* CursorNotifySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorNotifySettings.swift; sourceTree = "<group>"; };
 		E10000020000000000000002 /* CursorNotifySettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorNotifySettingsTests.swift; sourceTree = "<group>"; };
 		E10000020000000000000003 /* CursorNotifyInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorNotifyInstaller.swift; sourceTree = "<group>"; };
 		E10000020000000000000004 /* CursorNotifyInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorNotifyInstallerTests.swift; sourceTree = "<group>"; };
+		E10000020000000000000005 /* CursorApprovalLogParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorApprovalLogParser.swift; sourceTree = "<group>"; };
+		E10000020000000000000006 /* CursorNtfyClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorNtfyClient.swift; sourceTree = "<group>"; };
+		E10000020000000000000007 /* CursorApprovalMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorApprovalMonitor.swift; sourceTree = "<group>"; };
+		E10000020000000000000008 /* CursorApprovalLogParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorApprovalLogParserTests.swift; sourceTree = "<group>"; };
+		E10000020000000000000009 /* CursorApprovalMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorApprovalMonitorTests.swift; sourceTree = "<group>"; };
 		B10000030000000000000001 /* DesktopNumberTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DesktopNumberTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -219,6 +249,7 @@
 				C10000020000000000000007 /* CommuteFailsafeRunner.swift */,
 				C10000020000000000000008 /* CommuteModeController.swift */,
 				C10000020000000000000009 /* CommuteFailsafePolicy.swift */,
+				C10000020000000000000010 /* CommutePermissionInstaller.swift */,
 			);
 			path = CommuteMode;
 			sourceTree = "<group>";
@@ -228,6 +259,9 @@
 			children = (
 				E10000020000000000000001 /* CursorNotifySettings.swift */,
 				E10000020000000000000003 /* CursorNotifyInstaller.swift */,
+				E10000020000000000000005 /* CursorApprovalLogParser.swift */,
+				E10000020000000000000006 /* CursorNtfyClient.swift */,
+				E10000020000000000000007 /* CursorApprovalMonitor.swift */,
 			);
 			path = CursorNotify;
 			sourceTree = "<group>";
@@ -267,8 +301,11 @@
 				B10000020000000000000004 /* PmsetParsingTests.swift */,
 				B10000020000000000000005 /* CommuteFailsafePolicyTests.swift */,
 				B10000020000000000000006 /* CommuteModeControllerTests.swift */,
+				B10000020000000000000007 /* CommutePermissionInstallerTests.swift */,
 				E10000020000000000000002 /* CursorNotifySettingsTests.swift */,
 				E10000020000000000000004 /* CursorNotifyInstallerTests.swift */,
+				E10000020000000000000008 /* CursorApprovalLogParserTests.swift */,
+				E10000020000000000000009 /* CursorApprovalMonitorTests.swift */,
 			);
 			path = DesktopNumberTests;
 			sourceTree = "<group>";
@@ -283,6 +320,7 @@
 				A10000070000000000000001 /* Sources */,
 				A10000040000000000000001 /* Frameworks */,
 				F10000090000000000000001 /* Copy Cursor Hooks */,
+				F10000090000000000000002 /* Copy Commute Scripts */,
 				F10000080000000000000001 /* Copy Files */,
 			);
 			buildRules = (
@@ -381,8 +419,12 @@
 				C10000010000000000000007 /* CommuteFailsafeRunner.swift in Sources */,
 				C10000010000000000000008 /* CommuteModeController.swift in Sources */,
 				C10000010000000000000009 /* CommuteFailsafePolicy.swift in Sources */,
+				C10000010000000000000010 /* CommutePermissionInstaller.swift in Sources */,
 				E10000010000000000000001 /* CursorNotifySettings.swift in Sources */,
 				E10000010000000000000003 /* CursorNotifyInstaller.swift in Sources */,
+				E10000010000000000000005 /* CursorApprovalLogParser.swift in Sources */,
+				E10000010000000000000006 /* CursorNtfyClient.swift in Sources */,
+				E10000010000000000000007 /* CursorApprovalMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -396,8 +438,11 @@
 				B10000010000000000000004 /* PmsetParsingTests.swift in Sources */,
 				B10000010000000000000005 /* CommuteFailsafePolicyTests.swift in Sources */,
 				B10000010000000000000006 /* CommuteModeControllerTests.swift in Sources */,
+				B10000010000000000000007 /* CommutePermissionInstallerTests.swift in Sources */,
 				E10000010000000000000002 /* CursorNotifySettingsTests.swift in Sources */,
 				E10000010000000000000004 /* CursorNotifyInstallerTests.swift in Sources */,
+				E10000010000000000000008 /* CursorApprovalLogParserTests.swift in Sources */,
+				E10000010000000000000009 /* CursorApprovalMonitorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

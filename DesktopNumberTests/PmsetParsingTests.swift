@@ -10,6 +10,21 @@ final class PmsetParsingTests: XCTestCase {
         XCTAssertTrue(PmsetParser.parseSleepDisabled(from: output))
     }
 
+    func testParseSleepDisabledWithDoubleTabAlignment() {
+        let output = """
+        System-wide power settings:
+         SleepDisabled\t\t1
+        Currently in use:
+         sleep                0
+        """
+        XCTAssertTrue(PmsetParser.parseSleepDisabled(from: output))
+    }
+
+    func testParseSleepDisabledReturnsFalseForZero() {
+        let output = " SleepDisabled\t\t0\n"
+        XCTAssertFalse(PmsetParser.parseSleepDisabled(from: output))
+    }
+
     func testParseCustomProfiles() {
         let output = """
         AC Power:

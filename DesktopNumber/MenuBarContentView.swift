@@ -92,6 +92,22 @@ struct MenuBarContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                if notifySettings.needsMigration {
+                    Text("Approval hooks were updated automatically. Restart Cursor once.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if let migrationStatus = notifySettings.migrationStatus {
+                    Text(migrationStatus)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let approvalError = notifySettings.approvalMonitor.lastError {
+                    Text(approvalError)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Button(notifySettings.isInstalling ? "Installing..." : "Install Push Hooks") {
                     Task {
@@ -101,6 +117,10 @@ struct MenuBarContentView: View {
                 .disabled(notifySettings.isInstalling)
 
                 Text("Installs Cursor hooks into ~/.cursor and sends a test push.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                Text("Approval pushes also work via native Cursor log monitoring.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -149,10 +169,27 @@ struct MenuBarContentView: View {
                     Text("Time left: \(UsageFormatting.formatDuration(seconds: remaining))")
                 }
             } else {
-                Button("Start Commute Mode (90 min)") {
-                    commuteController.enable()
+                HStack {
+                    Button("Start Commute Mode (90 min)") {
+                        commuteController.enable()
+                    }
+                    .disabled(!commuteController.hasPasswordlessAccess || commuteController.phase == .enabling)
+
+                    if !commuteController.hasPasswordlessAccess {
+                        Button(commuteController.isInstallingPermissions ? "Installing..." : "Grant Access") {
+                            Task {
+                                await commuteController.installPermissions()
+                            }
+                        }
+                        .disabled(commuteController.isInstallingPermissions)
+                    }
                 }
-                .disabled(!commuteController.hasPasswordlessAccess || commuteController.phase == .enabling)
+
+                if !commuteController.hasPasswordlessAccess {
+                    Text("Requires administrator password once.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if let batteryPercent = commuteController.batteryPercent {
@@ -160,12 +197,6 @@ struct MenuBarContentView: View {
             }
 
             Text("Thermal: \(UsageFormatting.formatThermalState(commuteController.thermalState))")
-
-            if !commuteController.hasPasswordlessAccess {
-                Text("Setup required: run scripts/install-commute-permission.sh")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
 
             if let lastStopReason = commuteController.lastStopReason {
                 Text(UsageFormatting.formatCommuteStopReason(lastStopReason))

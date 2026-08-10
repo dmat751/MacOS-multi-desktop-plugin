@@ -14,11 +14,32 @@ enum CursorNotifyInstallError: LocalizedError {
     }
 }
 
+struct CursorNotifyInstallationStatus: Equatable {
+    let missingScripts: [String]
+    let missingHookEntries: [String]
+    let envNeedsMigration: Bool
+
+    var isFullyInstalled: Bool {
+        missingScripts.isEmpty && missingHookEntries.isEmpty
+    }
+
+    var needsMigration: Bool {
+        !missingScripts.isEmpty || !missingHookEntries.isEmpty || envNeedsMigration
+    }
+}
+
 struct CursorNotifyInstaller {
     static let stopHookCommand = "./hooks/on-stop.sh"
     static let shellHookCommand = "./hooks/on-before-shell.sh"
     static let mcpHookCommand = "./hooks/on-before-mcp.sh"
     static let bundledResourceDirectory = "CursorHooks"
+    static let requiredHookScripts = [
+        "notify-ntfy.sh",
+        "approval-notify.sh",
+        "on-stop.sh",
+        "on-before-shell.sh",
+        "on-before-mcp.sh",
+    ]
 
     private let fileManager: FileManager
     private let bundle: Bundle
@@ -58,12 +79,95 @@ struct CursorNotifyInstaller {
             let exampleURL = try bundledResourceURL(name: "notify.env.example")
             try copyReplacingItem(at: exampleURL, to: envFileURL)
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: envFileURL.path)
+        } else {
+            try migrateEnvFileIfNeeded()
         }
 
         try mergeHooksIntoHooksJSON()
         if sendTestNotification {
             try sendTestNotificationIfPossible()
         }
+    }
+
+    func installationStatus() -> CursorNotifyInstallationStatus {
+        let missingScripts = Self.requiredHookScripts.filter { script in
+            !fileManager.fileExists(atPath: hooksDirectory.appendingPathComponent(script).path)
+        }
+
+        let hooksJSONStatus = Self.hooksJSONStatus(data: try? Data(contentsOf: hooksJSONURL))
+        let envNeedsMigration = envFileNeedsMigration()
+
+        return CursorNotifyInstallationStatus(
+            missingScripts: missingScripts,
+            missingHookEntries: hooksJSONStatus,
+            envNeedsMigration: envNeedsMigration
+        )
+    }
+
+    func migrateIfNeeded(sendTestNotification: Bool = false) throws {
+        let status = installationStatus()
+        guard status.needsMigration else { return }
+
+        try fileManager.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
+
+        for script in status.missingScripts {
+            let resourceName = (script as NSString).deletingPathExtension
+            try installBundledScript(named: resourceName, destinationName: script)
+        }
+
+        if !status.missingHookEntries.isEmpty {
+            try mergeHooksIntoHooksJSON()
+        }
+
+        if status.envNeedsMigration {
+            try migrateEnvFileIfNeeded()
+        }
+
+        if sendTestNotification {
+            try sendTestNotificationIfPossible()
+        }
+    }
+
+    private func migrateEnvFileIfNeeded() throws {
+        guard let contents = try? String(contentsOf: envFileURL, encoding: .utf8) else { return }
+        let env = CursorNotifyEnvFile(contents: contents)
+        guard env.value(for: CursorNotifyEnvFile.approveEnabledKey) == nil else { return }
+
+        let updated = env.settingApproveEnabled(env.isApproveEnabled)
+        try updated.write(to: envFileURL, atomically: true, encoding: .utf8)
+    }
+
+    private func envFileNeedsMigration() -> Bool {
+        guard let contents = try? String(contentsOf: envFileURL, encoding: .utf8) else {
+            return false
+        }
+        let env = CursorNotifyEnvFile(contents: contents)
+        return env.value(for: CursorNotifyEnvFile.approveEnabledKey) == nil
+    }
+
+    static func hooksJSONStatus(data: Data?) -> [String] {
+        guard let data,
+              let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = parsed["hooks"] as? [String: Any] else {
+            return ["stop", "beforeShellExecution", "beforeMCPExecution"]
+        }
+
+        var missing: [String] = []
+        if !hookEntries(hooks["stop"]).contains(where: { $0["command"] as? String == stopHookCommand }) {
+            missing.append("stop")
+        }
+        if !hookEntries(hooks["beforeShellExecution"]).contains(where: { $0["command"] as? String == shellHookCommand }) {
+            missing.append("beforeShellExecution")
+        }
+        if !hookEntries(hooks["beforeMCPExecution"]).contains(where: { $0["command"] as? String == mcpHookCommand }) {
+            missing.append("beforeMCPExecution")
+        }
+        return missing
+    }
+
+    private static func hookEntries(_ value: Any?) -> [[String: Any]] {
+        value as? [[String: Any]] ?? []
     }
 
     private func installBundledScript(named resourceName: String, destinationName: String) throws {

@@ -110,38 +110,57 @@ struct CursorNotifyEnvFile {
 @MainActor
 final class CursorNotifySettings: ObservableObject {
     @Published private(set) var isInstalled = false
+    @Published private(set) var needsMigration = false
     @Published private(set) var isEnabled = true
     @Published private(set) var isApproveEnabled = true
     @Published private(set) var topic: String?
     @Published private(set) var isInstalling = false
     @Published private(set) var installError: String?
+    @Published private(set) var migrationStatus: String?
     @Published private(set) var isSendingTestPush = false
     @Published private(set) var testPushStatus: String?
 
-    static let placeholderTopic = "your-topic-name"
+    static let placeholderTopic = CursorNotifyConstants.placeholderTopic
+
+    let approvalMonitor: CursorApprovalMonitor
 
     private let fileManager: FileManager
     private let bundle: Bundle
-    private let hookScriptURL: URL
+    private let hooksDirectory: URL
     private let envFileURL: URL
 
     init(
         fileManager: FileManager = .default,
         bundle: Bundle = .main,
-        hookScriptURL: URL? = nil,
-        envFileURL: URL? = nil
+        hooksDirectory: URL? = nil,
+        envFileURL: URL? = nil,
+        approvalMonitor: CursorApprovalMonitor? = nil,
+        autoMigrate: Bool = true,
+        startMonitor: Bool = true
     ) {
         self.fileManager = fileManager
         self.bundle = bundle
         let home = fileManager.homeDirectoryForCurrentUser
-        let hooksDirectory = home.appendingPathComponent(".cursor/hooks", isDirectory: true)
-        self.hookScriptURL = hookScriptURL ?? hooksDirectory.appendingPathComponent("on-stop.sh")
-        self.envFileURL = envFileURL ?? hooksDirectory.appendingPathComponent("notify.env")
+        self.hooksDirectory = hooksDirectory ?? home.appendingPathComponent(".cursor/hooks", isDirectory: true)
+        self.envFileURL = envFileURL ?? self.hooksDirectory.appendingPathComponent("notify.env")
+        self.approvalMonitor = approvalMonitor ?? CursorApprovalMonitor(envFileURL: self.envFileURL)
         refresh()
+        if autoMigrate {
+            migrateIfNeeded()
+        }
+        if startMonitor {
+            self.approvalMonitor.start()
+        }
     }
 
     func refresh() {
-        isInstalled = fileManager.fileExists(atPath: hookScriptURL.path)
+        let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
+        let status = installer.installationStatus()
+        let hasStopHook = fileManager.fileExists(
+            atPath: hooksDirectory.appendingPathComponent("on-stop.sh").path
+        )
+        isInstalled = hasStopHook || fileManager.fileExists(atPath: envFileURL.path)
+        needsMigration = status.needsMigration
 
         guard let contents = try? String(contentsOf: envFileURL, encoding: .utf8) else {
             isEnabled = true
@@ -156,6 +175,24 @@ final class CursorNotifySettings: ObservableObject {
         topic = env.topic
     }
 
+    func migrateIfNeeded() {
+        let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
+        let status = installer.installationStatus()
+        guard status.needsMigration else {
+            migrationStatus = nil
+            return
+        }
+
+        do {
+            try installer.migrateIfNeeded()
+            migrationStatus = "Updated Cursor push hooks."
+            refresh()
+        } catch {
+            migrationStatus = error.localizedDescription
+            refresh()
+        }
+    }
+
     func install() async {
         guard !isInstalling else { return }
 
@@ -166,6 +203,7 @@ final class CursorNotifySettings: ObservableObject {
             let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
             try installer.install()
             refresh()
+            approvalMonitor.start()
         } catch {
             installError = error.localizedDescription
             refresh()

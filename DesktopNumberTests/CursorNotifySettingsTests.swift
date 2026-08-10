@@ -80,6 +80,22 @@ final class CursorNotifyEnvFileTests: XCTestCase {
 
 @MainActor
 final class CursorNotifySettingsTests: XCTestCase {
+    private func makeSettings(directory: URL) -> CursorNotifySettings {
+        let monitor = CursorApprovalMonitor(
+            tailer: CursorApprovalLogTailer(logsRoot: directory),
+            ntfyClient: MockSettingsNtfySender(),
+            pollInterval: 60
+        )
+        return CursorNotifySettings(
+            fileManager: .default,
+            hooksDirectory: directory,
+            envFileURL: directory.appendingPathComponent("notify.env"),
+            approvalMonitor: monitor,
+            autoMigrate: false,
+            startMonitor: false
+        )
+    }
+
     func testRefreshReadsInstalledStateAndEnvFile() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("DesktopNumberNotifyTests-\(UUID().uuidString)", isDirectory: true)
@@ -95,16 +111,54 @@ final class CursorNotifySettingsTests: XCTestCase {
 
         """.write(to: envURL, atomically: true, encoding: .utf8)
 
-        let settings = CursorNotifySettings(
-            fileManager: .default,
-            hookScriptURL: hookURL,
-            envFileURL: envURL
-        )
+        let settings = makeSettings(directory: directory)
 
         XCTAssertTrue(settings.isInstalled)
         XCTAssertFalse(settings.isEnabled)
         XCTAssertFalse(settings.isApproveEnabled)
         XCTAssertEqual(settings.topic, "Cursor-test")
+    }
+
+    func testRefreshDetectsPartialInstallAsNeedingMigration() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DesktopNumberNotifyTests-\(UUID().uuidString)", isDirectory: true)
+        let cursorRoot = root.appendingPathComponent(".cursor", isDirectory: true)
+        let hooksDirectory = cursorRoot.appendingPathComponent("hooks", isDirectory: true)
+        try FileManager.default.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
+
+        try "# hook".write(
+            to: hooksDirectory.appendingPathComponent("on-stop.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=1\n".write(
+            to: hooksDirectory.appendingPathComponent("notify.env"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "version": 1,
+          "hooks": {
+            "stop": [
+              { "command": "./hooks/on-stop.sh", "matcher": "Stop" }
+            ]
+          }
+        }
+        """.write(
+            to: cursorRoot.appendingPathComponent("hooks.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let installer = CursorNotifyInstaller(
+            fileManager: .default,
+            cursorDirectory: cursorRoot
+        )
+        let status = installer.installationStatus()
+
+        XCTAssertTrue(status.needsMigration)
+        XCTAssertEqual(status.missingHookEntries, ["beforeShellExecution", "beforeMCPExecution"])
     }
 
     func testSetApproveEnabledWritesToEnvFile() throws {
@@ -117,11 +171,7 @@ final class CursorNotifySettingsTests: XCTestCase {
         try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
         try "NTFY_TOPIC=Cursor-test\nNTFY_APPROVE_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
 
-        let settings = CursorNotifySettings(
-            fileManager: .default,
-            hookScriptURL: hookURL,
-            envFileURL: envURL
-        )
+        let settings = makeSettings(directory: directory)
 
         settings.setApproveEnabled(false)
 
@@ -140,11 +190,7 @@ final class CursorNotifySettingsTests: XCTestCase {
         try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
         try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
 
-        let settings = CursorNotifySettings(
-            fileManager: .default,
-            hookScriptURL: hookURL,
-            envFileURL: envURL
-        )
+        let settings = makeSettings(directory: directory)
 
         settings.setEnabled(false)
 
@@ -164,11 +210,7 @@ final class CursorNotifySettingsTests: XCTestCase {
         try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
         try "NTFY_TOPIC=old-topic\nNTFY_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
 
-        let settings = CursorNotifySettings(
-            fileManager: .default,
-            hookScriptURL: hookURL,
-            envFileURL: envURL
-        )
+        let settings = makeSettings(directory: directory)
 
         settings.setTopic("Cursor-1234")
 
@@ -187,14 +229,14 @@ final class CursorNotifySettingsTests: XCTestCase {
         try? "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
         try? "NTFY_TOPIC=your-topic-name\nNTFY_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
 
-        let settings = CursorNotifySettings(
-            fileManager: .default,
-            hookScriptURL: hookURL,
-            envFileURL: envURL
-        )
+        let settings = makeSettings(directory: directory)
 
         await settings.sendTestPush()
 
         XCTAssertEqual(settings.testPushStatus, "Set an ntfy topic first.")
     }
+}
+
+private final class MockSettingsNtfySender: CursorNtfySending {
+    func sendApprovalPush(title: String, body: String) async throws {}
 }

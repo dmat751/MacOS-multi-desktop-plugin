@@ -15,11 +15,13 @@ final class CommuteModeController: ObservableObject {
     @Published private(set) var lastStopReason: CommuteStopReason?
     @Published private(set) var errorMessage: String?
     @Published private(set) var hasPasswordlessAccess = false
+    @Published private(set) var isInstallingPermissions = false
 
     private let powerClient: PowerManagementClient
     private let powerMonitor: PowerStatusMonitor
     private let stateStore: CommuteModeStateStore
     private let failsafeRunner: CommuteFailsafeRunner
+    private let permissionInstaller: CommutePermissionInstaller
     private let bundle: Bundle
 
     private var statusTimer: Timer?
@@ -30,12 +32,14 @@ final class CommuteModeController: ObservableObject {
         powerMonitor: PowerStatusMonitor = PowerStatusMonitor(),
         stateStore: CommuteModeStateStore = CommuteModeStateStore(),
         failsafeRunner: CommuteFailsafeRunner = CommuteFailsafeRunner(),
+        permissionInstaller: CommutePermissionInstaller = CommutePermissionInstaller(),
         bundle: Bundle = .main
     ) {
         self.powerClient = powerClient
         self.powerMonitor = powerMonitor
         self.stateStore = stateStore
         self.failsafeRunner = failsafeRunner
+        self.permissionInstaller = permissionInstaller
         self.bundle = bundle
 
         NotificationCenter.default.addObserver(
@@ -87,6 +91,32 @@ final class CommuteModeController: ObservableObject {
 
     func refreshPermissionStatus() {
         hasPasswordlessAccess = powerClient.hasPasswordlessPmsetAccess()
+    }
+
+    func installPermissions() async {
+        guard !isInstallingPermissions else { return }
+
+        isInstallingPermissions = true
+        errorMessage = nil
+
+        let username = NSUserName()
+        let installer = permissionInstaller
+
+        do {
+            try await Task.detached {
+                try installer.install(username: username)
+            }.value
+
+            refreshPermissionStatus()
+            if !hasPasswordlessAccess {
+                errorMessage = "Installed, but sudo access was not detected. Try restarting the app."
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            refreshPermissionStatus()
+        }
+
+        isInstallingPermissions = false
     }
 
     func enable() {
