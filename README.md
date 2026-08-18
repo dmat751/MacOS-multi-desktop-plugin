@@ -80,7 +80,7 @@ Commute mode does **not** use `caffeinate`. That tool does not prevent sleep whe
 
 Send push notifications via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes or needs your approval. This uses Cursor **user hooks** installed into `~/.cursor/`.
 
-Install once from the DesktopNumber menu (**Install Push Hooks** under **Cursor Agent Push**), or from the terminal:
+Install once from the DesktopNumber menu by enabling **Push when agent finishes** or **Push when approve needed**, or from the terminal:
 
 ```bash
 ./scripts/install-cursor-notify-hooks.sh
@@ -95,7 +95,8 @@ Uninstall:
 The installer:
 
 - copies hook scripts to `~/.cursor/hooks/`
-- merges `stop`, `beforeShellExecution`, and `beforeMCPExecution` hooks into `~/.cursor/hooks.json` (backs up any existing file first)
+- merges the `stop` hook into `~/.cursor/hooks.json` (backs up any existing file first)
+- removes leftover DesktopNumber `beforeShellExecution` / `beforeMCPExecution` hooks if a previous version installed them
 - creates `~/.cursor/hooks/notify.env` from `notify.env.example` (set your ntfy topic there)
 - sends a test push when `NTFY_TOPIC` is configured
 
@@ -107,16 +108,16 @@ NTFY_ENABLED=1
 NTFY_APPROVE_ENABLED=1
 ```
 
-Enable or disable push notifications from the DesktopNumber menu bar:
+Enable or disable push notifications from the DesktopNumber menu bar toggles:
 
-- **Push when agent finishes** — writes `NTFY_ENABLED=1` or `0`
-- **Push when approve needed** — writes `NTFY_APPROVE_ENABLED=1` or `0`
+- **Push when agent finishes** — installs or removes the Cursor `stop` hook and writes `NTFY_ENABLED=1` or `0`
+- **Push when approve needed** — starts or stops DesktopNumber log monitoring and writes `NTFY_APPROVE_ENABLED=1` or `0`
 
 No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
 
-**Approve coverage:** DesktopNumber watches Cursor logs for native approval prompts (shell allowlist, MCP allowlist, Auto-review) and sends a push immediately. Both `beforeShellExecution` and `beforeMCPExecution` hooks are pass-through; approve pushes come only from the log monitor (`Shell permissions: requesting shell approval`, sandbox shell runs with `allCommandsPreapproved` + not allowlisted, and `shouldBlockMcp: needsApproval`).
+**Approve coverage:** DesktopNumber does **not** install `beforeShellExecution` or `beforeMCPExecution` hooks, so Cursor's native shell and MCP approval prompts stay in control. Approve pushes come only from the log monitor (`Shell permissions: requesting shell approval`, sandbox shell runs with `allCommandsPreapproved` + not allowlisted, and `shouldBlockMcp: needsApproval`).
 
-After updating DesktopNumber, run **Install Push Hooks** again to refresh scripts in `~/.cursor/hooks/`.
+After updating DesktopNumber, re-enable **Push when agent finishes** once to refresh scripts in `~/.cursor/hooks/`.
 
 ## Commute mode safety
 

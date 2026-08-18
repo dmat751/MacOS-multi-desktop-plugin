@@ -15,8 +15,15 @@ fi
 
 mkdir -p "$HOOKS_DIR"
 
-for script in notify-ntfy.sh approval-notify.sh on-stop.sh on-before-shell.sh on-before-mcp.sh; do
+for script in notify-ntfy.sh on-stop.sh; do
   install -m 755 "${SOURCE_DIR}/${script}" "${HOOKS_DIR}/${script}"
+done
+
+for stale in approval-notify.sh on-before-shell.sh on-before-mcp.sh; do
+  if [[ -f "${HOOKS_DIR}/${stale}" ]]; then
+    rm -f "${HOOKS_DIR}/${stale}"
+    echo "Removed leftover ${HOOKS_DIR}/${stale}"
+  fi
 done
 
 if [[ ! -f "$NOTIFY_ENV" ]]; then
@@ -38,6 +45,10 @@ import pathlib
 import sys
 
 hooks_json = pathlib.Path(sys.argv[1])
+stale_commands = {
+    "./hooks/on-before-shell.sh",
+    "./hooks/on-before-mcp.sh",
+}
 
 if hooks_json.exists():
     data = json.loads(hooks_json.read_text())
@@ -61,9 +72,22 @@ def merge_hook(hook_name, command, matcher=None):
         entry["matcher"] = matcher
     hooks.append(entry)
 
+def strip_stale(hook_name):
+    hooks = data["hooks"].get(hook_name)
+    if not isinstance(hooks, list):
+        return
+    filtered = [
+        hook for hook in hooks
+        if not (isinstance(hook, dict) and hook.get("command") in stale_commands)
+    ]
+    if filtered:
+        data["hooks"][hook_name] = filtered
+    else:
+        data["hooks"].pop(hook_name, None)
+
 merge_hook("stop", "./hooks/on-stop.sh", "Stop")
-merge_hook("beforeShellExecution", "./hooks/on-before-shell.sh")
-merge_hook("beforeMCPExecution", "./hooks/on-before-mcp.sh")
+strip_stale("beforeShellExecution")
+strip_stale("beforeMCPExecution")
 
 hooks_json.write_text(json.dumps(data, indent=2) + "\n")
 PY

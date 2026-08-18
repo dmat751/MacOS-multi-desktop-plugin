@@ -22,11 +22,11 @@ struct CursorNotifyEnvFile {
     }
 
     var isEnabled: Bool {
-        Self.isTruthy(value(for: Self.enabledKey), defaultValue: true)
+        Self.isTruthy(value(for: Self.enabledKey), defaultValue: false)
     }
 
     var isApproveEnabled: Bool {
-        Self.isTruthy(value(for: Self.approveEnabledKey), defaultValue: true)
+        Self.isTruthy(value(for: Self.approveEnabledKey), defaultValue: false)
     }
 
     var topic: String? {
@@ -111,10 +111,10 @@ struct CursorNotifyEnvFile {
 final class CursorNotifySettings: ObservableObject {
     @Published private(set) var isInstalled = false
     @Published private(set) var needsMigration = false
-    @Published private(set) var isEnabled = true
-    @Published private(set) var isApproveEnabled = true
+    @Published private(set) var isEnabled = false
+    @Published private(set) var isApproveEnabled = false
     @Published private(set) var topic: String?
-    @Published private(set) var isInstalling = false
+    @Published private(set) var isUpdating = false
     @Published private(set) var installError: String?
     @Published private(set) var migrationStatus: String?
     @Published private(set) var isSendingTestPush = false
@@ -126,6 +126,7 @@ final class CursorNotifySettings: ObservableObject {
 
     private let fileManager: FileManager
     private let bundle: Bundle
+    private let cursorDirectory: URL
     private let hooksDirectory: URL
     private let envFileURL: URL
 
@@ -134,6 +135,7 @@ final class CursorNotifySettings: ObservableObject {
         bundle: Bundle = .main,
         hooksDirectory: URL? = nil,
         envFileURL: URL? = nil,
+        cursorDirectory: URL? = nil,
         approvalMonitor: CursorApprovalMonitor? = nil,
         autoMigrate: Bool = true,
         startMonitor: Bool = true
@@ -141,20 +143,27 @@ final class CursorNotifySettings: ObservableObject {
         self.fileManager = fileManager
         self.bundle = bundle
         let home = fileManager.homeDirectoryForCurrentUser
-        self.hooksDirectory = hooksDirectory ?? home.appendingPathComponent(".cursor/hooks", isDirectory: true)
+        let defaultCursorDirectory = home.appendingPathComponent(".cursor", isDirectory: true)
+        if let hooksDirectory {
+            self.hooksDirectory = hooksDirectory
+            self.cursorDirectory = cursorDirectory ?? hooksDirectory.deletingLastPathComponent()
+        } else {
+            self.cursorDirectory = cursorDirectory ?? defaultCursorDirectory
+            self.hooksDirectory = self.cursorDirectory.appendingPathComponent("hooks", isDirectory: true)
+        }
         self.envFileURL = envFileURL ?? self.hooksDirectory.appendingPathComponent("notify.env")
         self.approvalMonitor = approvalMonitor ?? CursorApprovalMonitor(envFileURL: self.envFileURL)
         refresh()
         if autoMigrate {
             migrateIfNeeded()
         }
-        if startMonitor {
+        if startMonitor, isApproveEnabled {
             self.approvalMonitor.start()
         }
     }
 
     func refresh() {
-        let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
+        let installer = makeInstaller()
         let status = installer.installationStatus()
         let hasStopHook = fileManager.fileExists(
             atPath: hooksDirectory.appendingPathComponent("on-stop.sh").path
@@ -163,8 +172,8 @@ final class CursorNotifySettings: ObservableObject {
         needsMigration = status.needsMigration
 
         guard let contents = try? String(contentsOf: envFileURL, encoding: .utf8) else {
-            isEnabled = true
-            isApproveEnabled = true
+            isEnabled = hasStopHook
+            isApproveEnabled = false
             topic = nil
             return
         }
@@ -176,7 +185,7 @@ final class CursorNotifySettings: ObservableObject {
     }
 
     func migrateIfNeeded() {
-        let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
+        let installer = makeInstaller()
         let status = installer.installationStatus()
         guard status.needsMigration else {
             migrationStatus = nil
@@ -193,99 +202,91 @@ final class CursorNotifySettings: ObservableObject {
         }
     }
 
-    func install() async {
-        guard !isInstalling else { return }
+    func setEnabled(_ enabled: Bool) async {
+        guard !isUpdating else { return }
 
-        isInstalling = true
+        isUpdating = true
         installError = nil
+        defer { isUpdating = false }
+
+        let installer = makeInstaller()
+        let keepApproveActive = isApproveEnabled
 
         do {
-            let installer = CursorNotifyInstaller(fileManager: fileManager, bundle: bundle)
-            try installer.install()
+            if enabled {
+                try installer.installStopHook()
+                try writeEnvFile { $0.settingEnabled(true) }
+                isEnabled = true
+            } else {
+                try installer.uninstallStopHook()
+                try writeEnvFile { $0.settingEnabled(false) }
+                isEnabled = false
+                if !keepApproveActive {
+                    try installer.uninstall()
+                    approvalMonitor.stop()
+                }
+            }
             refresh()
-            approvalMonitor.start()
         } catch {
             installError = error.localizedDescription
             refresh()
         }
-
-        isInstalling = false
     }
 
-    func setEnabled(_ enabled: Bool) {
-        guard isInstalled else { return }
+    func setApproveEnabled(_ enabled: Bool) async {
+        guard !isUpdating else { return }
 
-        let contents: String
-        if let existing = try? String(contentsOf: envFileURL, encoding: .utf8) {
-            contents = CursorNotifyEnvFile(contents: existing).settingEnabled(enabled)
-        } else {
-            contents = """
-            NTFY_TOPIC=your-topic-name
-            NTFY_ENABLED=\(enabled ? "1" : "0")
-            NTFY_APPROVE_ENABLED=\(isApproveEnabled ? "1" : "0")
+        isUpdating = true
+        installError = nil
+        defer { isUpdating = false }
 
-            """
-        }
+        let installer = makeInstaller()
+        let keepFinishActive = isEnabled
 
         do {
-            try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
-            isEnabled = enabled
+            if enabled {
+                try installer.ensureNotifyEnv()
+                try writeEnvFile { $0.settingApproveEnabled(true) }
+                isApproveEnabled = true
+                approvalMonitor.start()
+            } else {
+                try writeEnvFile { $0.settingApproveEnabled(false) }
+                isApproveEnabled = false
+                approvalMonitor.stop()
+                if !keepFinishActive {
+                    try installer.uninstall()
+                }
+            }
             refresh()
         } catch {
-            refresh()
-        }
-    }
-
-    func setApproveEnabled(_ enabled: Bool) {
-        guard isInstalled else { return }
-
-        let contents: String
-        if let existing = try? String(contentsOf: envFileURL, encoding: .utf8) {
-            contents = CursorNotifyEnvFile(contents: existing).settingApproveEnabled(enabled)
-        } else {
-            contents = """
-            NTFY_TOPIC=your-topic-name
-            NTFY_ENABLED=\(isEnabled ? "1" : "0")
-            NTFY_APPROVE_ENABLED=\(enabled ? "1" : "0")
-
-            """
-        }
-
-        do {
-            try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
-            isApproveEnabled = enabled
-            refresh()
-        } catch {
+            installError = error.localizedDescription
             refresh()
         }
     }
 
     func setTopic(_ topic: String) {
-        guard isInstalled else { return }
-
-        let contents: String
-        if let existing = try? String(contentsOf: envFileURL, encoding: .utf8) {
-            contents = CursorNotifyEnvFile(contents: existing).settingTopic(topic)
-        } else {
-            contents = """
-            NTFY_TOPIC=\(topic)
-            NTFY_ENABLED=\(isEnabled ? "1" : "0")
-            NTFY_APPROVE_ENABLED=\(isApproveEnabled ? "1" : "0")
-
-            """
-        }
-
         do {
-            try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
+            try writeEnvFile { env in
+                if env.lines.isEmpty {
+                    return """
+                    NTFY_TOPIC=\(topic)
+                    NTFY_ENABLED=\(isEnabled ? "1" : "0")
+                    NTFY_APPROVE_ENABLED=\(isApproveEnabled ? "1" : "0")
+
+                    """
+                }
+                return env.settingTopic(topic)
+            }
             self.topic = topic
             refresh()
         } catch {
+            installError = error.localizedDescription
             refresh()
         }
     }
 
     func sendTestPush() async {
-        guard isInstalled, !isSendingTestPush else { return }
+        guard !isSendingTestPush else { return }
 
         guard let topic,
               !topic.isEmpty,
@@ -314,5 +315,24 @@ final class CursorNotifySettings: ObservableObject {
         }
 
         isSendingTestPush = false
+    }
+
+    private func makeInstaller() -> CursorNotifyInstaller {
+        CursorNotifyInstaller(
+            fileManager: fileManager,
+            bundle: bundle,
+            cursorDirectory: cursorDirectory
+        )
+    }
+
+    private func writeEnvFile(transform: (CursorNotifyEnvFile) -> String) throws {
+        let existing = (try? String(contentsOf: envFileURL, encoding: .utf8)) ?? ""
+        let contents = transform(CursorNotifyEnvFile(contents: existing))
+        try fileManager.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
+        try contents.write(to: envFileURL, atomically: true, encoding: .utf8)
+        if !fileManager.fileExists(atPath: envFileURL.path) {
+            return
+        }
+        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: envFileURL.path)
     }
 }

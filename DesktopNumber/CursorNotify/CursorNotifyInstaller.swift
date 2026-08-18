@@ -17,6 +17,8 @@ enum CursorNotifyInstallError: LocalizedError {
 struct CursorNotifyInstallationStatus: Equatable {
     let missingScripts: [String]
     let missingHookEntries: [String]
+    let staleHookScripts: [String]
+    let staleHookEntries: [String]
     let envNeedsMigration: Bool
 
     var isFullyInstalled: Bool {
@@ -24,21 +26,33 @@ struct CursorNotifyInstallationStatus: Equatable {
     }
 
     var needsMigration: Bool {
-        !missingScripts.isEmpty || !missingHookEntries.isEmpty || envNeedsMigration
+        !missingScripts.isEmpty
+            || !missingHookEntries.isEmpty
+            || !staleHookScripts.isEmpty
+            || !staleHookEntries.isEmpty
+            || envNeedsMigration
     }
 }
 
 struct CursorNotifyInstaller {
     static let stopHookCommand = "./hooks/on-stop.sh"
-    static let shellHookCommand = "./hooks/on-before-shell.sh"
-    static let mcpHookCommand = "./hooks/on-before-mcp.sh"
     static let bundledResourceDirectory = "CursorHooks"
     static let requiredHookScripts = [
         "notify-ntfy.sh",
-        "approval-notify.sh",
         "on-stop.sh",
+    ]
+    static let staleHookScripts = [
+        "approval-notify.sh",
         "on-before-shell.sh",
         "on-before-mcp.sh",
+    ]
+    static let staleHookCommands = [
+        "./hooks/on-before-shell.sh",
+        "./hooks/on-before-mcp.sh",
+    ]
+    static let permissionHookEvents = [
+        "beforeShellExecution",
+        "beforeMCPExecution",
     ]
 
     private let fileManager: FileManager
@@ -66,26 +80,66 @@ struct CursorNotifyInstaller {
     }
 
     func install(sendTestNotification: Bool = true) throws {
+        try installStopHook(sendTestNotification: sendTestNotification)
+    }
+
+    func installStopHook(sendTestNotification: Bool = false) throws {
         try fileManager.createDirectory(at: cursorDirectory, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
 
         try installBundledScript(named: "notify-ntfy", destinationName: "notify-ntfy.sh")
-        try installBundledScript(named: "approval-notify", destinationName: "approval-notify.sh")
         try installBundledScript(named: "on-stop", destinationName: "on-stop.sh")
-        try installBundledScript(named: "on-before-shell", destinationName: "on-before-shell.sh")
-        try installBundledScript(named: "on-before-mcp", destinationName: "on-before-mcp.sh")
+        try removeStaleHookScripts()
+        try ensureNotifyEnv()
 
-        if !fileManager.fileExists(atPath: envFileURL.path) {
-            let exampleURL = try bundledResourceURL(name: "notify.env.example")
-            try copyReplacingItem(at: exampleURL, to: envFileURL)
-            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: envFileURL.path)
-        } else {
-            try migrateEnvFileIfNeeded()
-        }
-
-        try mergeHooksIntoHooksJSON()
+        try mergeHooksIntoHooksJSON(includeStopHook: true)
         if sendTestNotification {
             try sendTestNotificationIfPossible()
+        }
+    }
+
+    func ensureNotifyEnv() throws {
+        guard !fileManager.fileExists(atPath: envFileURL.path) else {
+            try migrateEnvFileIfNeeded()
+            return
+        }
+
+        let exampleURL = try bundledResourceURL(name: "notify.env.example")
+        try copyReplacingItem(at: exampleURL, to: envFileURL)
+        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: envFileURL.path)
+    }
+
+    func uninstallStopHook() throws {
+        let stopScript = hooksDirectory.appendingPathComponent("on-stop.sh")
+        if fileManager.fileExists(atPath: stopScript.path) {
+            try fileManager.removeItem(at: stopScript)
+        }
+
+        guard fileManager.fileExists(atPath: hooksJSONURL.path) else { return }
+
+        let merged = try Self.mergedHooksJSON(
+            existingData: try Data(contentsOf: hooksJSONURL),
+            stopHookCommand: Self.stopHookCommand,
+            includeStopHook: false
+        )
+        try merged.write(to: hooksJSONURL, options: .atomic)
+    }
+
+    func uninstall() throws {
+        for script in Self.requiredHookScripts + Self.staleHookScripts {
+            let url = hooksDirectory.appendingPathComponent(script)
+            if fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
+            }
+        }
+
+        if fileManager.fileExists(atPath: hooksJSONURL.path) {
+            let merged = try Self.mergedHooksJSON(
+                existingData: try Data(contentsOf: hooksJSONURL),
+                stopHookCommand: Self.stopHookCommand,
+                includeStopHook: false
+            )
+            try merged.write(to: hooksJSONURL, options: .atomic)
         }
     }
 
@@ -93,14 +147,17 @@ struct CursorNotifyInstaller {
         let missingScripts = Self.requiredHookScripts.filter { script in
             !fileManager.fileExists(atPath: hooksDirectory.appendingPathComponent(script).path)
         }
-
-        let hooksJSONStatus = Self.hooksJSONStatus(data: try? Data(contentsOf: hooksJSONURL))
-        let envNeedsMigration = envFileNeedsMigration()
+        let staleScripts = Self.staleHookScripts.filter { script in
+            fileManager.fileExists(atPath: hooksDirectory.appendingPathComponent(script).path)
+        }
+        let hooksData = try? Data(contentsOf: hooksJSONURL)
 
         return CursorNotifyInstallationStatus(
             missingScripts: missingScripts,
-            missingHookEntries: hooksJSONStatus,
-            envNeedsMigration: envNeedsMigration
+            missingHookEntries: Self.hooksJSONStatus(data: hooksData),
+            staleHookScripts: staleScripts,
+            staleHookEntries: Self.staleHookEntries(in: hooksData),
+            envNeedsMigration: envFileNeedsMigration()
         )
     }
 
@@ -116,7 +173,9 @@ struct CursorNotifyInstaller {
             try installBundledScript(named: resourceName, destinationName: script)
         }
 
-        if !status.missingHookEntries.isEmpty {
+        try removeStaleHookScripts()
+
+        if !status.missingHookEntries.isEmpty || !status.staleHookEntries.isEmpty {
             try mergeHooksIntoHooksJSON()
         }
 
@@ -150,20 +209,28 @@ struct CursorNotifyInstaller {
         guard let data,
               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let hooks = parsed["hooks"] as? [String: Any] else {
-            return ["stop", "beforeShellExecution", "beforeMCPExecution"]
+            return ["stop"]
         }
 
-        var missing: [String] = []
-        if !hookEntries(hooks["stop"]).contains(where: { $0["command"] as? String == stopHookCommand }) {
-            missing.append("stop")
+        if hookEntries(hooks["stop"]).contains(where: { $0["command"] as? String == stopHookCommand }) {
+            return []
         }
-        if !hookEntries(hooks["beforeShellExecution"]).contains(where: { $0["command"] as? String == shellHookCommand }) {
-            missing.append("beforeShellExecution")
+        return ["stop"]
+    }
+
+    static func staleHookEntries(in data: Data?) -> [String] {
+        guard let data,
+              let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = parsed["hooks"] as? [String: Any] else {
+            return []
         }
-        if !hookEntries(hooks["beforeMCPExecution"]).contains(where: { $0["command"] as? String == mcpHookCommand }) {
-            missing.append("beforeMCPExecution")
+
+        return permissionHookEvents.filter { event in
+            hookEntries(hooks[event]).contains { entry in
+                guard let command = entry["command"] as? String else { return false }
+                return staleHookCommands.contains(command)
+            }
         }
-        return missing
     }
 
     private static func hookEntries(_ value: Any?) -> [[String: Any]] {
@@ -175,6 +242,15 @@ struct CursorNotifyInstaller {
         let destinationURL = hooksDirectory.appendingPathComponent(destinationName)
         try copyReplacingItem(at: sourceURL, to: destinationURL)
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destinationURL.path)
+    }
+
+    private func removeStaleHookScripts() throws {
+        for script in Self.staleHookScripts {
+            let url = hooksDirectory.appendingPathComponent(script)
+            if fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
+            }
+        }
     }
 
     private func bundledResourceURL(name: String) throws -> URL {
@@ -212,7 +288,7 @@ struct CursorNotifyInstaller {
         try fileManager.copyItem(at: sourceURL, to: destinationURL)
     }
 
-    func mergeHooksIntoHooksJSON() throws {
+    func mergeHooksIntoHooksJSON(includeStopHook: Bool = true) throws {
         if fileManager.fileExists(atPath: hooksJSONURL.path) {
             let backupURL = hooksJSONURL.deletingPathExtension()
                 .appendingPathExtension("bak.\(Self.timestampBackupSuffix())")
@@ -222,8 +298,7 @@ struct CursorNotifyInstaller {
         let merged = try Self.mergedHooksJSON(
             existingData: try? Data(contentsOf: hooksJSONURL),
             stopHookCommand: Self.stopHookCommand,
-            shellHookCommand: Self.shellHookCommand,
-            mcpHookCommand: Self.mcpHookCommand
+            includeStopHook: includeStopHook
         )
         try merged.write(to: hooksJSONURL, options: .atomic)
     }
@@ -231,8 +306,7 @@ struct CursorNotifyInstaller {
     static func mergedHooksJSON(
         existingData: Data?,
         stopHookCommand: String,
-        shellHookCommand: String,
-        mcpHookCommand: String
+        includeStopHook: Bool = true
     ) throws -> Data {
         var root: [String: Any]
         if let existingData,
@@ -248,19 +322,34 @@ struct CursorNotifyInstaller {
 
         var hooks = root["hooks"] as? [String: Any] ?? [:]
 
-        hooks["stop"] = Self.mergedHookEntries(
-            existing: hooks["stop"] as? [[String: Any]] ?? [],
-            command: stopHookCommand,
-            matcher: "Stop"
-        )
-        hooks["beforeShellExecution"] = Self.mergedHookEntries(
-            existing: hooks["beforeShellExecution"] as? [[String: Any]] ?? [],
-            command: shellHookCommand
-        )
-        hooks["beforeMCPExecution"] = Self.mergedHookEntries(
-            existing: hooks["beforeMCPExecution"] as? [[String: Any]] ?? [],
-            command: mcpHookCommand
-        )
+        if includeStopHook {
+            hooks["stop"] = Self.mergedHookEntries(
+                existing: hooks["stop"] as? [[String: Any]] ?? [],
+                command: stopHookCommand,
+                matcher: "Stop"
+            )
+        } else {
+            let filtered = hookEntries(hooks["stop"]).filter { entry in
+                entry["command"] as? String != stopHookCommand
+            }
+            if filtered.isEmpty {
+                hooks.removeValue(forKey: "stop")
+            } else {
+                hooks["stop"] = filtered
+            }
+        }
+
+        for event in permissionHookEvents {
+            let filtered = hookEntries(hooks[event]).filter { entry in
+                guard let command = entry["command"] as? String else { return true }
+                return !staleHookCommands.contains(command)
+            }
+            if filtered.isEmpty {
+                hooks.removeValue(forKey: event)
+            } else {
+                hooks[event] = filtered
+            }
+        }
 
         root["hooks"] = hooks
 

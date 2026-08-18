@@ -2,10 +2,10 @@ import XCTest
 @testable import DesktopNumber
 
 final class CursorNotifyEnvFileTests: XCTestCase {
-    func testMissingEnabledKeyDefaultsToEnabled() {
+    func testMissingEnabledKeyDefaultsToDisabled() {
         let env = CursorNotifyEnvFile(contents: "NTFY_TOPIC=Cursor-test\n")
-        XCTAssertTrue(env.isEnabled)
-        XCTAssertTrue(env.isApproveEnabled)
+        XCTAssertFalse(env.isEnabled)
+        XCTAssertFalse(env.isApproveEnabled)
         XCTAssertEqual(env.topic, "Cursor-test")
     }
 
@@ -90,6 +90,7 @@ final class CursorNotifySettingsTests: XCTestCase {
             fileManager: .default,
             hooksDirectory: directory,
             envFileURL: directory.appendingPathComponent("notify.env"),
+            cursorDirectory: directory,
             approvalMonitor: monitor,
             autoMigrate: false,
             startMonitor: false
@@ -158,10 +159,11 @@ final class CursorNotifySettingsTests: XCTestCase {
         let status = installer.installationStatus()
 
         XCTAssertTrue(status.needsMigration)
-        XCTAssertEqual(status.missingHookEntries, ["beforeShellExecution", "beforeMCPExecution"])
+        XCTAssertEqual(status.missingHookEntries, [])
+        XCTAssertTrue(status.envNeedsMigration)
     }
 
-    func testSetApproveEnabledWritesToEnvFile() throws {
+    func testSetApproveEnabledWritesToEnvFile() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("DesktopNumberNotifyTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -169,18 +171,18 @@ final class CursorNotifySettingsTests: XCTestCase {
         let hookURL = directory.appendingPathComponent("on-stop.sh")
         let envURL = directory.appendingPathComponent("notify.env")
         try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
-        try "NTFY_TOPIC=Cursor-test\nNTFY_APPROVE_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
+        try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=0\nNTFY_APPROVE_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
 
         let settings = makeSettings(directory: directory)
 
-        settings.setApproveEnabled(false)
+        await settings.setApproveEnabled(false)
 
         let env = CursorNotifyEnvFile(contents: try String(contentsOf: envURL, encoding: .utf8))
         XCTAssertFalse(env.isApproveEnabled)
         XCTAssertFalse(settings.isApproveEnabled)
     }
 
-    func testSetEnabledWritesToEnvFile() throws {
+    func testSetEnabledWritesToEnvFile() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("DesktopNumberNotifyTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -188,16 +190,17 @@ final class CursorNotifySettingsTests: XCTestCase {
         let hookURL = directory.appendingPathComponent("on-stop.sh")
         let envURL = directory.appendingPathComponent("notify.env")
         try "# hook".write(to: hookURL, atomically: true, encoding: .utf8)
-        try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=1\n".write(to: envURL, atomically: true, encoding: .utf8)
+        try "NTFY_TOPIC=Cursor-test\nNTFY_ENABLED=1\nNTFY_APPROVE_ENABLED=0\n".write(to: envURL, atomically: true, encoding: .utf8)
 
         let settings = makeSettings(directory: directory)
 
-        settings.setEnabled(false)
+        await settings.setEnabled(false)
 
         let env = CursorNotifyEnvFile(contents: try String(contentsOf: envURL, encoding: .utf8))
         XCTAssertFalse(env.isEnabled)
         XCTAssertEqual(env.topic, "Cursor-test")
         XCTAssertFalse(settings.isEnabled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: hookURL.path))
     }
 
     func testSetTopicWritesToEnvFile() throws {

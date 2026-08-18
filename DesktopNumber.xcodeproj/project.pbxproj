@@ -92,24 +92,18 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/cursor-hooks/notify-ntfy.sh",
-				"$(SRCROOT)/cursor-hooks/approval-notify.sh",
 				"$(SRCROOT)/cursor-hooks/on-stop.sh",
-				"$(SRCROOT)/cursor-hooks/on-before-shell.sh",
-				"$(SRCROOT)/cursor-hooks/on-before-mcp.sh",
 				"$(SRCROOT)/cursor-hooks/notify.env.example",
 			);
 			name = "Copy Cursor Hooks";
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/notify-ntfy.sh",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/approval-notify.sh",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/on-stop.sh",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/on-before-shell.sh",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/on-before-mcp.sh",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CursorHooks/notify.env.example",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CursorHooks\"\nmkdir -p \"$DST\"\ncp \"${SRCROOT}/cursor-hooks/notify-ntfy.sh\" \\\n   \"${SRCROOT}/cursor-hooks/approval-notify.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-stop.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-before-shell.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-before-mcp.sh\" \\\n   \"${SRCROOT}/cursor-hooks/notify.env.example\" \\\n   \"$DST/\"\n";
+			shellScript = "set -e\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CursorHooks\"\nmkdir -p \"$DST\"\ncp \"${SRCROOT}/cursor-hooks/notify-ntfy.sh\" \\\n   \"${SRCROOT}/cursor-hooks/on-stop.sh\" \\\n   \"${SRCROOT}/cursor-hooks/notify.env.example\" \\\n   \"$DST/\"\n";
 		};
 		F10000090000000000000002 /* Copy Commute Scripts */ = {
 			isa = PBXShellScriptBuildPhase;

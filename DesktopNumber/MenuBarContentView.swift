@@ -50,80 +50,77 @@ struct MenuBarContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if notifySettings.isInstalled {
-                Toggle(
-                    "Push when agent finishes",
-                    isOn: Binding(
-                        get: { notifySettings.isEnabled },
-                        set: { notifySettings.setEnabled($0) }
-                    )
+            Toggle(
+                "Push when agent finishes",
+                isOn: Binding(
+                    get: { notifySettings.isEnabled },
+                    set: { enabled in
+                        Task {
+                            await notifySettings.setEnabled(enabled)
+                        }
+                    }
                 )
+            )
+            .disabled(notifySettings.isUpdating)
 
-                Toggle(
-                    "Push when approve needed",
-                    isOn: Binding(
-                        get: { notifySettings.isApproveEnabled },
-                        set: { notifySettings.setApproveEnabled($0) }
-                    )
+            Toggle(
+                "Push when approve needed",
+                isOn: Binding(
+                    get: { notifySettings.isApproveEnabled },
+                    set: { enabled in
+                        Task {
+                            await notifySettings.setApproveEnabled(enabled)
+                        }
+                    }
                 )
+            )
+            .disabled(notifySettings.isUpdating)
 
-                Text("ntfy topic")
+            Text("ntfy topic")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            TextField(
+                "your-topic-name",
+                text: Binding(
+                    get: { notifySettings.topic ?? "" },
+                    set: { notifySettings.setTopic($0) }
+                )
+            )
+            .textFieldStyle(.roundedBorder)
+
+            Button(notifySettings.isSendingTestPush ? "Sending..." : "Send Test Push") {
+                Task {
+                    await notifySettings.sendTestPush()
+                }
+            }
+            .disabled(notifySettings.isSendingTestPush)
+
+            if let testPushStatus = notifySettings.testPushStatus {
+                Text(testPushStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if notifySettings.needsMigration {
+                Text("Push hooks were updated automatically. Restart Cursor once.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-
-                TextField(
-                    "your-topic-name",
-                    text: Binding(
-                        get: { notifySettings.topic ?? "" },
-                        set: { notifySettings.setTopic($0) }
-                    )
-                )
-                .textFieldStyle(.roundedBorder)
-
-                Button(notifySettings.isSendingTestPush ? "Sending..." : "Send Test Push") {
-                    Task {
-                        await notifySettings.sendTestPush()
-                    }
-                }
-                .disabled(notifySettings.isSendingTestPush)
-
-                if let testPushStatus = notifySettings.testPushStatus {
-                    Text(testPushStatus)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if notifySettings.needsMigration {
-                    Text("Approval hooks were updated automatically. Restart Cursor once.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else if let migrationStatus = notifySettings.migrationStatus {
-                    Text(migrationStatus)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let approvalError = notifySettings.approvalMonitor.lastError {
-                    Text(approvalError)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button(notifySettings.isInstalling ? "Installing..." : "Install Push Hooks") {
-                    Task {
-                        await notifySettings.install()
-                    }
-                }
-                .disabled(notifySettings.isInstalling)
-
-                Text("Installs Cursor hooks into ~/.cursor and sends a test push.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                Text("Approval pushes also work via native Cursor log monitoring.")
+            } else if let migrationStatus = notifySettings.migrationStatus {
+                Text(migrationStatus)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+
+            if let approvalError = notifySettings.approvalMonitor.lastError {
+                Text(approvalError)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Finish pushes use Cursor stop hooks. Approve pushes use DesktopNumber log monitoring.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
             if let installError = notifySettings.installError {
                 Text(installError)
