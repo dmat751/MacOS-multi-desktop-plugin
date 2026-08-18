@@ -7,43 +7,43 @@ It also includes:
 - **Office / Power status** — read-only check that your Mac is configured for lock-screen safety on AC power (`Prevent automatic sleeping on power adapter when the display is off`).
 - **Commute mode** — keeps the Mac awake with the lid closed for local Cursor agents during a commute, with automatic safety cutoffs.
 
+See [Quick Start](#quick-start) to build and run in one step.
+
 ## Requirements
 
 - macOS 13 (Ventura) or later
 - Xcode 15+
 
-## Building
+## Quick Start
+
+From the repo root:
 
 ```bash
-cd mac-desktop-number-plugin
-xcodebuild -scheme DesktopNumber -configuration Release -derivedDataPath build build
+git clone <repo-url>
+cd <repo-directory>
+./scripts/build-and-open-desktop-number.sh
 ```
 
-The built app is located at:
+The script builds a Release build with `xcodebuild -derivedDataPath build` and opens:
 
 ```
 build/Build/Products/Release/DesktopNumber.app
 ```
 
-When building from Xcode (without `-derivedDataPath build`), check the path in the `xcodebuild` log.
+The menu bar icon appears immediately. The app runs as an agent (`LSUIElement`) — it has no Dock icon.
 
-## Running
+## Using the app
 
-```bash
-open build/Build/Products/Release/DesktopNumber.app
-```
-
-After launch, the current desktop number appears in the menu bar. When Cursor usage data is available, the label also shows today's cost, for example `3/5 · $0.42`. When commute mode is active, the label also shows a coffee indicator.
+The menu bar label shows the current desktop number. When Cursor usage data is available, it also shows today's cost, for example `3/5 · $0.42`. When commute mode is active, the label also shows a coffee indicator.
 
 Clicking the icon opens a menu with:
 
-- the current desktop number
-- today's Cursor cost and token usage
-- office / power status (AC, prevent-sleep setting, lock-screen safety)
-- commute mode controls and safety status
-- a manual refresh action
-
-The app runs as an agent (`LSUIElement`) — it has no Dock icon.
+- current desktop number
+- today's Cursor cost, token usage, and **Refresh Cursor Usage**
+- **Cursor Agent Push** — toggles for finish and approve notifications, **ntfy topic** field, and **Send Test Push**
+- **Office / Power** status (AC, prevent-sleep setting, lock-screen safety) and **Refresh Power Status**
+- **Commute Mode** controls, **Grant Access**, and safety status
+- **Quit**
 
 ## Commute mode setup
 
@@ -52,13 +52,13 @@ Commute mode uses `pmset -a disablesleep` so a MacBook can stay awake with the l
 Install once from the menu (**Grant Access** next to Start Commute Mode) or manually:
 
 ```bash
-sudo scripts/install-commute-permission.sh
+sudo ./scripts/install-commute-permission.sh
 ```
 
 Uninstall:
 
 ```bash
-sudo scripts/uninstall-commute-permission.sh
+sudo ./scripts/uninstall-commute-permission.sh
 ```
 
 The installer writes `/etc/sudoers.d/desktopnumber-commute` allowing only:
@@ -78,9 +78,16 @@ Commute mode does **not** use `caffeinate`. That tool does not prevent sleep whe
 
 ## Cursor agent notifications (optional)
 
-Send push notifications via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes or needs your approval. This uses Cursor **user hooks** installed into `~/.cursor/`.
+Send push notifications via [ntfy.sh](https://ntfy.sh) when a local Cursor agent finishes or needs your approval.
 
-Install once from the DesktopNumber menu by enabling **Push when agent finishes** or **Push when approve needed**, or from the terminal:
+There are two push paths:
+
+| Notification | How it works | DesktopNumber must be running? |
+| --- | --- | --- |
+| Agent finished | Cursor `stop` hook in `~/.cursor/hooks/` | No (Cursor runs the hook) |
+| Approve needed | DesktopNumber log monitor tails Cursor logs | Yes |
+
+Install from the DesktopNumber menu by enabling **Push when agent finishes** or **Push when approve needed**, or from the terminal:
 
 ```bash
 ./scripts/install-cursor-notify-hooks.sh
@@ -100,7 +107,7 @@ The installer:
 - creates `~/.cursor/hooks/notify.env` from `notify.env.example` (set your ntfy topic there)
 - sends a test push when `NTFY_TOPIC` is configured
 
-Edit `~/.cursor/hooks/notify.env`:
+Set your ntfy topic in the menu **ntfy topic** field or in `~/.cursor/hooks/notify.env`:
 
 ```bash
 NTFY_TOPIC=your-topic-name
@@ -108,16 +115,18 @@ NTFY_ENABLED=1
 NTFY_APPROVE_ENABLED=1
 ```
 
+Send a test push from the menu (**Send Test Push**) or via the install script when `NTFY_TOPIC` is already set.
+
 Enable or disable push notifications from the DesktopNumber menu bar toggles:
 
 - **Push when agent finishes** — installs or removes the Cursor `stop` hook and writes `NTFY_ENABLED=1` or `0`
 - **Push when approve needed** — starts or stops DesktopNumber log monitoring and writes `NTFY_APPROVE_ENABLED=1` or `0`
 
-No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
+No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If finish notifications do not arrive, open the **Hooks** output channel for errors.
 
 **Approve coverage:** DesktopNumber does **not** install `beforeShellExecution` or `beforeMCPExecution` hooks, so Cursor's native shell and MCP approval prompts stay in control. Approve pushes come only from the log monitor (`Shell permissions: requesting shell approval`, sandbox shell runs with `allCommandsPreapproved` + not allowlisted, and `shouldBlockMcp: needsApproval`).
 
-After updating DesktopNumber, re-enable **Push when agent finishes** once to refresh scripts in `~/.cursor/hooks/`.
+After updating DesktopNumber, launch the app once. It auto-migrates hook scripts in `~/.cursor/hooks/` on startup. If the menu shows that hooks were updated, restart Cursor once.
 
 ## Commute mode safety
 
@@ -137,6 +146,29 @@ When commute mode is enabled, the app and an embedded `CommuteFailsafe` helper m
 2. Click **+** and select `DesktopNumber.app`.
 
 Alternatively, you can copy the app to `/Applications` and add it from there.
+
+## Scripts
+
+All scripts live in `scripts/` and should be run from the repo root:
+
+| Script | Purpose |
+| --- | --- |
+| `./scripts/build-and-open-desktop-number.sh` | Build Release and open the app |
+| `./scripts/install-commute-permission.sh` | Install commute-mode sudoers entry (run with `sudo`) |
+| `./scripts/uninstall-commute-permission.sh` | Remove commute-mode sudoers entry (run with `sudo`) |
+| `./scripts/install-cursor-notify-hooks.sh` | Install Cursor notify hooks into `~/.cursor/` |
+| `./scripts/uninstall-cursor-notify-hooks.sh` | Remove DesktopNumber Cursor notify hooks |
+
+## Manual build
+
+If you prefer not to use the build script, from the repo root:
+
+```bash
+xcodebuild -scheme DesktopNumber -configuration Release -derivedDataPath build build
+open build/Build/Products/Release/DesktopNumber.app
+```
+
+When building from Xcode (without `-derivedDataPath build`), check the path in the `xcodebuild` log.
 
 ## Testing
 
