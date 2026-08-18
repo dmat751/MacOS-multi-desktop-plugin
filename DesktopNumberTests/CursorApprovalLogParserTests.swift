@@ -15,9 +15,32 @@ final class CursorApprovalLogParserTests: XCTestCase {
         XCTAssertTrue(event?.body.contains("Shell approval needed") == true)
     }
 
-    func testIgnoresShellApprovalForcedByHook() {
+    func testParsesShellApprovalEvenWhenHookForcedPrompt() {
         let line = """
-        {"message":"Shell permissions: requesting shell approval","metadata":{"toolCallId":"tool_hook","hookForcesPrompt":"true"}}
+        {"message":"Shell permissions: requesting shell approval","metadata":{"toolCallId":"tool_hook","hookForcesPrompt":"true","requestedPolicyType":"insecure_none","commandCount":"1"}}
+        """
+
+        let event = CursorApprovalLogParser.parse(line: line)
+
+        XCTAssertEqual(event?.kind, .shell)
+        XCTAssertEqual(event?.dedupeKey, "shell:tool_hook")
+    }
+
+    func testParsesShellRunConfirmationWaitingInUI() {
+        let line = """
+        {"message":"Shell permissions: auto-approved shell command","metadata":{"toolCallId":"tool_expo","allCommandsPreapproved":"true","allCommandsAllowlisted":"false","mergedPolicyType":"workspace_readwrite"}}
+        """
+
+        let event = CursorApprovalLogParser.parse(line: line)
+
+        XCTAssertEqual(event?.kind, .shell)
+        XCTAssertEqual(event?.dedupeKey, "shell:run:tool_expo")
+        XCTAssertEqual(event?.body, "Shell run waiting for confirmation (workspace_readwrite)")
+    }
+
+    func testIgnoresAutoApprovedAllowlistedShell() {
+        let line = """
+        {"message":"Shell permissions: auto-approved shell command","metadata":{"toolCallId":"tool_auto","allCommandsPreapproved":"true","allCommandsAllowlisted":"true"}}
         """
 
         XCTAssertNil(CursorApprovalLogParser.parse(line: line))

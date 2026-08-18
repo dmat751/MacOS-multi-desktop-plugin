@@ -18,15 +18,14 @@ enum CursorApprovalLogParser {
         if let event = parseStructuredShellApproval(line: line) {
             return event
         }
+        if let event = parseShellRunConfirmation(line: line) {
+            return event
+        }
         return parseMCPAllowlistApproval(line: line)
     }
 
     private static func parseStructuredShellApproval(line: String) -> CursorApprovalEvent? {
         guard line.contains("Shell permissions: requesting shell approval") else {
-            return nil
-        }
-
-        if metadataValue(in: line, key: "hookForcesPrompt") == "true" {
             return nil
         }
 
@@ -45,6 +44,31 @@ enum CursorApprovalLogParser {
             dedupeKey: dedupeKey,
             title: "Cursor: approve",
             body: details
+        )
+    }
+
+    private static func parseShellRunConfirmation(line: String) -> CursorApprovalEvent? {
+        guard line.contains("Shell permissions: auto-approved shell command") else {
+            return nil
+        }
+        guard metadataValue(in: line, key: "allCommandsPreapproved") == "true" else {
+            return nil
+        }
+        guard metadataValue(in: line, key: "allCommandsAllowlisted") == "false" else {
+            return nil
+        }
+
+        let toolCallId = metadataValue(in: line, key: "toolCallId")
+        let dedupeKey = toolCallId.map { "shell:run:\($0)" } ?? fingerprint(for: line)
+        let policyType = metadataValue(in: line, key: "mergedPolicyType")
+            ?? metadataValue(in: line, key: "autoApprovalPolicyType")
+            ?? "shell"
+
+        return CursorApprovalEvent(
+            kind: .shell,
+            dedupeKey: dedupeKey,
+            title: "Cursor: approve",
+            body: "Shell run waiting for confirmation (\(policyType))"
         )
     }
 

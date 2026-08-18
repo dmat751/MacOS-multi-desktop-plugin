@@ -138,13 +138,18 @@ struct MenuBarContentView: View {
                 .foregroundStyle(.secondary)
 
             if let officeStatus = commuteController.officeStatus {
+                StatusIndicator(
+                    title: "Office mode",
+                    status: officeStatus.isOfficeReady ? "Ready" : "Needs attention",
+                    color: officeStatus.isOfficeReady ? .green : .orange
+                )
                 Text("On AC power: \(officeStatus.isOnACPower ? "Yes" : "No")")
                 Text(
                     "Prevent sleep when display off: \(officeStatus.preventSleepWhenDisplayOff ? "ON" : "OFF")"
                 )
                 Text("Office lock-screen safe: \(officeStatus.isOfficeReady ? "Yes" : "No")")
             } else {
-                Text("Office status: unavailable")
+                StatusIndicator(title: "Office mode", status: "Unavailable", color: .secondary)
             }
 
             Button("Refresh Power Status") {
@@ -156,6 +161,8 @@ struct MenuBarContentView: View {
             Text("Commute Mode (closed lid)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            commuteStatusIndicator
 
             Text("Keeps the Mac awake with lid closed. Risk: heat and battery drain.")
                 .font(.caption2)
@@ -219,5 +226,35 @@ struct MenuBarContentView: View {
         }
         .padding(12)
         .frame(width: 300)
+    }
+
+    @ViewBuilder
+    private var commuteStatusIndicator: some View {
+        if commuteController.isActive {
+            StatusIndicator(title: "Commute mode", status: "Active", color: .green)
+        } else if commuteController.hasPasswordlessAccess {
+            StatusIndicator(title: "Commute mode", status: "Ready", color: .green)
+        } else {
+            StatusIndicator(title: "Commute mode", status: "Setup required", color: .orange)
+        }
+    }
+}
+
+private struct StatusIndicator: View {
+    let title: String
+    let status: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+
+            Text("\(title): \(status)")
+                .fontWeight(.semibold)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

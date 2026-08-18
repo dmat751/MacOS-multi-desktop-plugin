@@ -114,7 +114,7 @@ Enable or disable push notifications from the DesktopNumber menu bar:
 
 No Cursor restart is required for toggle changes. After installing or updating hooks, restart Cursor once and verify them in **Customize → Hooks**. If notifications do not arrive, open the **Hooks** output channel for errors.
 
-**Approve coverage:** DesktopNumber watches Cursor logs for native approval prompts (shell allowlist, MCP allowlist, Auto-review) and sends a push immediately. Hooks still provide a fallback for risky shell/MCP commands via `beforeShellExecution` / `beforeMCPExecution`.
+**Approve coverage:** DesktopNumber watches Cursor logs for native approval prompts (shell allowlist, MCP allowlist, Auto-review) and sends a push immediately. Both `beforeShellExecution` and `beforeMCPExecution` hooks are pass-through; approve pushes come only from the log monitor (`Shell permissions: requesting shell approval`, sandbox shell runs with `allCommandsPreapproved` + not allowlisted, and `shouldBlockMcp: needsApproval`).
 
 After updating DesktopNumber, run **Install Push Hooks** again to refresh scripts in `~/.cursor/hooks/`.
 
