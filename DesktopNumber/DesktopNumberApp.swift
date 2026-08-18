@@ -1,58 +1,26 @@
-import AppKit
 import SwiftUI
 
 @main
 struct DesktopNumberApp: App {
     @StateObject private var spaceObserver = SpaceObserver()
     @StateObject private var usageObserver = CursorUsageObserver()
+    @StateObject private var commuteController = CommuteModeController()
+    @StateObject private var notifySettings = CursorNotifySettings()
 
     var body: some Scene {
         MenuBarExtra {
-            if spaceObserver.totalSpaces > 1 {
-                Text("Desktop \(spaceObserver.currentSpaceIndex) of \(spaceObserver.totalSpaces)")
-            } else {
-                Text("Desktop \(spaceObserver.currentSpaceIndex)")
-            }
-
-            Divider()
-
-            if let costCents = usageObserver.todayCostCents {
-                Text("Today's Cursor cost: \(UsageFormatting.formatDollars(cents: costCents))")
-            } else if usageObserver.isLoading {
-                Text("Today's Cursor cost: Loading...")
-            } else {
-                Text("Today's Cursor cost: --")
-            }
-
-            if let tokens = usageObserver.todayTokens {
-                Text("Tokens today: \(UsageFormatting.formatTokens(tokens))")
-            }
-
-            if let lastUpdated = usageObserver.lastUpdated {
-                Text("Updated \(UsageFormatting.formatRelativeTime(lastUpdated))")
-            }
-
-            if let errorMessage = usageObserver.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Button(usageObserver.isLoading ? "Refreshing..." : "Refresh Cursor Usage") {
-                usageObserver.refresh()
-            }
-            .disabled(usageObserver.isLoading)
-
-            Divider()
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
+            MenuBarContentView(
+                spaceObserver: spaceObserver,
+                usageObserver: usageObserver,
+                commuteController: commuteController,
+                notifySettings: notifySettings
+            )
         } label: {
             Text(menuBarLabel)
                 .font(.system(size: 16, weight: .bold))
                 .monospacedDigit()
         }
+        .menuBarExtraStyle(.window)
     }
 
     private var menuBarLabel: String {
@@ -63,10 +31,16 @@ struct DesktopNumberApp: App {
             desktopLabel = "\(spaceObserver.currentSpaceIndex)"
         }
 
+        var label = desktopLabel
+
         if let costCents = usageObserver.todayCostCents {
-            return "\(desktopLabel) · \(UsageFormatting.formatDollars(cents: costCents))"
+            label += " · \(UsageFormatting.formatDollars(cents: costCents))"
         }
 
-        return desktopLabel
+        if commuteController.isActive {
+            label += " ☕"
+        }
+
+        return label
     }
 }
